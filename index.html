@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>WIRLOX · Puzzle Bank 01 · Factory 4.8</title>
+<title>WIRLOX · Puzzle Bank 01 · Factory 4.9</title>
 <style>
   :root{color-scheme:dark;--blue:#8bd4ff;--warm:#ffe69a;--muted:#99a8c4;--panel:rgba(8,15,34,.72)}
   *{box-sizing:border-box}
@@ -234,7 +234,7 @@
 <canvas id="wheel"></canvas>
 <div class="head">
  <div class="panel">
-  <h1>WIRLOX <span class="version">· FACTORY 4.8 · BANK 01</span></h1>
+  <h1>WIRLOX <span class="version">· FACTORY 4.9 · BANK 01</span></h1>
   <div class="sub">← → position · ↑ ↓ change letter · opposite pair moves with it</div>
   <div class="dayMood" id="dayMood">PUZZLE 01 / 07 · WARM-UP · 14 LETTERS</div>
   <div class="statLine">Time: <strong id="timer">0:00</strong> <span class="sep">|</span> Moves: <strong id="moves">0</strong> <span class="sep">|</span> PB: <strong id="pb">—</strong> <span class="sep">|</span> Word: <strong id="wordCount">1 / 3</strong><span id="minimumHeader" hidden> <span class="sep">|</span> Perfect: <strong id="minimumHeaderScore">—</strong></span></div>
@@ -299,7 +299,7 @@
     <div class="readyWords" id="readyWords">HOUSE · SMILE · PLANT</div>
     <p>All three targets are visible. Find them in order; the wheels retain every change. Moves determine your result, while the stopwatch is a secondary stat.</p>
     <p><b>No time limit.</b> Try both rear-letter display modes — switching costs no moves.</p>
-  <p class="touchHint">Touch controls: swipe on a blue letter to turn the ring, or on the orange alphabet to change a letter. One slow, deliberate step per swipe — lift your finger between steps.</p>
+  <p class="touchHint">Use the four large arrow buttons to turn the wheels. One tap = one move, with a mechanical click.</p>
     <button id="startRun" type="button">Start</button>
   <button id="testWheelClick" type="button">Test click sound</button> <span id="clickTestStatus" class="sub" aria-live="polite"></span>
   </div>
@@ -446,9 +446,8 @@ function vertical(delta){
  const opposite=(cursor+n()/2)%n();wheel[opposite]=mod(wheel[opposite]+delta,26);
  moves++;breakdown[level]++;updateUI();check();
 }
-// Factory 4.8: strict direct-wheel interaction.
-// One deliberately paced finger gesture can make AT MOST one move.
-// Blue-wheel and orange-wheel touch zones are exclusive at pointerdown.
+// Factory 4.9: arrow-only phone controls. No swipe or drag gestures.
+// Every tap or keyboard arrow uses move(), which counts one move and plays one click.
 // The click sample is embedded as mono 16-bit PCM (44.1 kHz). Safari can
 // create the AudioBuffer synchronously, without a fetch or WAV decoder race.
 const CLICK_SAMPLE_B64='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9f4f/2//bv+G/4P/mv91/27/eP9L/1L/O/8c//n+yP6x/sv+sv6//rH+3P7V/gX/Fv9O/3b/kP/H/9T/FQA9AGAAeACMAKgAlwCwALMAwQDIAN4A0gD5AAMBCAH+AOoAHAEdASgBMAEiARsB8QDsANgA3ADoAOQA/QAXAQMB/gAWAQwBPwEjATQBEAEMASsB6wAMAb8AvQCsAMMA1ADuADQBiQGbAc4BzAHAAcoBtwHPAY4BdAFlAU8BHQEnAUQBUQE1AUgBaQFoAY4BfwGyAdABFwJHAlYCYQJnAnwCoQK2ArACtgK/AsMC4wL/Av0C6ALhAusC9QLkAtgC8gLaAscCsgKGAmICTwJDAicCCgIUAgECEgIRAiQCOwIsAjUCJAITAusBwAHMAa0BywGaAcsBuQHcAdcB4AHxAfgBFgISAjcCYAKlAtQCFQNHA6ADmwPSA8oDEwQbBCYEKQQ4BEQELwRIBGMESQQ/BC8EGQT6A7gDqANbAyED5AKkApECUQI4AvAB3AHpAbkBsgGQAZcBmwGfAaUBlgGaAa8BtgHaAcsB3gH0AeIBBAIQAhoCGAInAj4CSwJYAocCfALIAuECFAM2A04DcAODA50DkwOQA4oDbwNuA24DiAOKA5kDjQOnA58DjgOWA3gDdwM4AxMD4gKuAn8CWgI0AgoC8QG9AaMBhAFvAVkBWwFFASABBAH5AAwB+QAZARgBPwEnAUIBYwFwAY8BrQHeAQUCLgJgAmwCmwK/AtMC9QIRAysDTgNiA4QDeQN+A4cDgQOEA3gDfgOEA4IDgANkA0wDOAMXA+oCuwJyAk8CIQLWAccBjgGAAXUBYwFUAQoBDgHnANgA0QC1AMIA2gDtAP4A9ADxAPMADwESASABJAE6AVQBZQFsAYgBpQHNAcsB3wHzARoCOgJZAn0CjAKUAssC1QL6AuwC7wIEA/MC9QLaAugCzwLUAqECmAJRAiQC6AGsAZcBXAE3AS0BEwEVAeAAwACfAIIAjgCNAKsAxgD5ABYBMgFUAWgBdwGJAacBiAGbAYEBpQGLAYsBgAGYAawBswG2Ab4B0gHaAe0B/wELAggCBgLuAc0BygGWAZsBaQFlAUIBUwFbAWcBWwFnAV8BewFvAWMBQgFBATgBDwH8AOsA7gD9AAYBBQHmAPMA2QDmAMUA0gDOAM4AvgC9AMQAygDMAKsAugC5AMQAxQC1AL4AxwDOANQA9wD4ACMBKQFiAVEBhwFxAZsBjQGUAY8BoAGPAXwBYgF+AVkBYQFVAXcBYgFqAWIBYAFXAVwBOwExAQ4B7wDjAKoAqgCFAHUAXwBMAFUAUAA2AC4AFAAvAAkACQD4/wsA+f8FANP/8P/J/+H/2v/f/+n/8v8IAAgAFQAjAD0AXgB7AJkAowDEANUABQEOARgBEwEQAQYBDwHnAOsAvQCsAKoAlQCjAHYAdQBsAEMAVwAkADEADAAAAPn/4//o/9P/5//o//X/BQD8/yYAGgBXAD8AWwBmAFQAcgBWAG4AVABHAEwARwBXAEsARQBYAF0AYwByAIcAjQCFAJcAhwCOAIUAjgB5AI0AXwBtAEgAXgAvABQACQDq//v/yf/b/7f/w/+u/7P/oP+a/6D/qv+h/4//jv9//3n/Wf9o/07/df9j/4D/fv+n/6f/vP/G/9b/5P/4/wwABgAXABAAHwASAB4ABgAPAAYAIgAVAAcABwAAAA4ACAAEAAIA9v/8//L/4//P/8z/zf/L/8P/xv+z/77/n/+s/4r/qv+R/5L/l/99/7X/gv+4/4f/mv+S/5n/pv+U/6f/lv+m/53/nv+f/6D/qv+T/4j/mv96/6L/gP+a/4//iv+V/4f/jf9+/3v/ff9//3v/hf+G/6X/m/+//6r/vf+w/6//rf+i/5n/jf+I/3b/cv9u/27/WP9Y/1f/X/9s/1//Wv9O/0L/Uf9E/0j/Q/9K/1H/Tf9i/2r/bv9w/3H/e/98/4z/k/+g/5D/of+m/7T/t/+8/8v/0v/R//L/7f/1/+T/3v/k/9D/xv+n/4v/f/9v/2T/XP9O/03/Of87/y//Mf82/yD/Lf8f/zP/J/8j/yj/Kv9D/0H/Sf9T/1X/bv9z/33/kP+d/5z/qv+l/7X/sf+u/6z/p/+q/6L/h/+L/2n/d/95/3P/jP98/5T/jP+k/7P/s//a/9X/4P/b/9D/3//O/8T/uv+k/7D/mf+N/5D/f/+R/4b/jf+Y/6D/ov+o/5L/lv+D/3n/cv9b/13/Qv9E/y7/OP8z/z//Qv9E/1f/Wv9t/3P/dP9//3b/dP9k/17/Wv9b/2L/cf9q/3r/df+Q/43/q/+e/8f/rP/N/8H/4f/S/8//yP+5/7X/nP+M/3z/ff+C/3j/df93/3L/e/+C/4P/jf+I/4j/iP93/3n/ZP9i/1H/Wf9R/07/VP9M/1X/X/9t/3b/e/9//5P/h/+L/3n/dP9y/27/cv9w/2z/d/9m/4b/bv+K/4P/iv+X/4//mv+X/6T/t/+0/8X/xP/M/9r/0v/X/8v/zf/O/73/uP+v/6X/n/+O/5D/iP9//4r/e/+X/3v/iv9z/2z/af9Q/1n/PP89/zf/MP8y/zH/Lf8//zj/R/9P/0r/aP9S/2T/Zv9i/3v/Zv+B/3T/eP+J/3r/kf+K/5f/qv+k/8b/rf/I/8D/zf/U/8v/0P/K/8L/yv+t/7n/ov+m/6H/l/+n/47/o/+K/5//of+e/6//nf+t/6P/pf+q/4z/l/90/3b/Yv9U/1T/RP9B/zz/N/9E/zn/T/9L/1T/Xf9Q/2z/Vf95/1//gv9n/4X/ev+T/5b/rv+5/7//0//M/+H/3v/s/+7/5//s/9z/7f/b/+7/2f/k/9r/2v/W/9r/zv/Z/8n/1P/M/8v/y//A/7P/sP+Z/6f/g/+a/3v/jf94/37/b/9z/2f/cv9q/3P/ev+A/4z/gv+L/4b/gf+B/3L/e/9s/3j/b/9//4H/lf+W/6v/tP+//9T/1f/p/+f/8f/3//b/+//5//j/AAD9/wkAAgAaABIAIQAhABkAIwAJAA8A/f/s/+7/y//T/7v/sv+x/5f/nf+R/4P/jf91/3z/c/9p/3f/Zv9x/3L/cv95/3j/d/+A/33/hv+N/4n/nv+a/6z/sf+8/8z/z//j/+j/8/8BAAAAEQAMABUAEAAUABIAFQARABkAEQAhABMAIwAXAB8AIAAbACIAFgAUABMABwAIAPT/+P/i/+T/0//J/8f/tf++/6r/qv+j/5P/m/+D/4v/fv95/3j/dP91/3n/c/+D/3//jf+Q/5//qP+z/7v/xf/O/9n/3v/k/+n/5v/5/+j/AwDz/wQACQAJAB0AGwAoADYAMgBNAEgAUABZAE4AWQBEAEgANQAwAB4AFQAHAPj/8P/b/9X/x/+8/7z/rv+z/6r/rf+i/6//lv+s/5L/n/+Z/47/nv+K/5j/lv+N/6b/j/+t/6P/r//B/7X/2//K/+r/6v/1/wQAAAATAA0AGgAaAB0AJgAiADEAKwA3AD0APABLAEgASwBQAEIASwA4ADcAKgAgABgACwAFAPr/+v/r//X/5v/y/+b/7P/g/+L/0v/O/8L/sP+v/5T/mf+C/4X/ff97/4H/f/+O/5L/oP+t/7b/yP/N/+P/4P/7//f/CwANABYAIAAkADAANgA8AEgASABWAFYAVwBhAE8AYgBIAFQARgA9AEEAJgAwABcAGQARAAIADAD2/wQA8v/+//X/9v/y/+7/6P/g/9z/yv/P/7P/vf+j/6j/nf+T/57/j/+j/5//rP+8/8H/1v/f/+z/+//8/w8ABQAYAAsAFgAXABIAJAAWADIAKABAAEIAUwBcAGQAcQBsAHoAbQBzAGYAWwBUAD4AOgAlABoAEgD/////5//s/9T/2v/D/8f/uf+2/7P/qf+q/6H/pP+e/6b/pf+u/7v/uP/V/8v/6P/o//b/BQACAB8AEwAwACoAOAA/ADgASwA4AEkAQQA9AEwANgBOAEAARQBQAD4AVABBAEgARAA4ADgAKAAiABMABwD5//H/3//i/83/2f/J/9T/y//U/9D/2v/W/9//3//h/+b/4//n/+f/5v/s/+v/8P/4//j/CgAHABwAHQAoADIALwA7ADUAOAA6AC4APgAmAD0AJwA6ACwAOAAvADYALwAxAC8AKAAqACEAHQAeABAAGAAHAAwAAAD///r/8//z/+7/7//u/+3/7v/y/+v/9f/p//P/7P/u//L/7P/0/+7/9v/0//f/+v/8/wAABQAHABEAFAAbACMAJgArADIAMAA9ADgAQABAAEIAQQBCADsAPwA2ADQANQApADAAIgAkABwAGAAQABMABAARAAEADQAHAAcACwADAAcAAAD7//r/8//s//D/3//v/9//6//o/+n/8f/z//b/AQD8/wsABQARABEAFgAbAB4AIwAkACkALAAvADMANQA8AD0ARQBEAE8ASABTAEkASwBFAD0AOwAtAC4AIAAiABUAFwANAAwACQAFAAMAAAD7//7/9P/2//H/7P/t/+P/6f/e/+b/3f/r/9//8//o//3/9/8IAAUAFQARAB8AHQAhACgAIQAuACoALgA4ACoAQAAsADsAMwAyADkALwA7ADEAOwA2ADoAOAA3ADkAMwA2AC0AMAApACgAIQAeABUAEwAMAAYACAD+/wMA+//9//v/+P/4//f/9P/z//T/6v/4/+H//f/d//v/4//1//H/7/////P/BwAAAAsAEAARAB4AGQAtACUAOgAzAEMAQABIAEoASwBRAE8AVABPAFYATgBUAEoATgBCAEMANQAyACcAHQAYAAgAAwD6//H/8f/k/+n/4//l/+b/5P/q/+j/6v/r/+f/7v/m/+7/6v/v//T/8///////CQALABUAFgAkAB4AMQAnADkAMgA8ADsAPgA+ADsAPgA4ADoANQAzADcALAA3ACkAMAAnACQAJQAZAB8ADwAYAA0AEQANAAoADwAGAAwABwAFAAkAAQAJAAAABgAAAAAAAAD4//v/8//0//X/8P/4//L/+v/9//n/BwD9/wwABgAMABUADgAfABcAJQAhAC4AKQA3ADAAOwA4ADkAOAA3ADEAMgAsACkAKgAiACYAIAAdACEAFAAfABEAGQAOABMADQALAAoABAAGAAAAAQD+/////f///////v8AAP///f8BAPX/AgDz////+f/7/wEAAAAJAA4AEgAZAB4AHwAoACIAKgAiACYAHwAiABgAIgAVAB8AFwAbAB0AGgAfAB8AHQAkABgAIgASABgADQAJAAcA//8FAPv/AQD9////BAD+/wkAAAAMAAgACAAQAAUAEwAFABMACAATAAwAFgARABgAGgAXACUAFwAqABoAJgAfACEAHQAeABYAGQARAA4ADgAGAAkABQADAAgAAgAIAAcABAAIAAAAAwD+//z//f/3//r/+P/4//j/9//5//z//P8EAAMADQAPABYAGgAfACMAKAApACwALAArACsAJQAnACAAIQAhABkAKAAWACwAGQAoAB8AHgAgABUAFwAMAAsAAgAAAPf/9v/u/+z/6//k/+3/5f/x/+3/9P/1//j/+f/4//v/9v/8//f//f//////BgADAA0ACwAVABcAHgAhACgAKAAwACkAMAAmACwAIQAiABkAGAASABMADQAQABAAEgAWABkAGwAhAB4AJgAhAB8AIAAUABcACAAGAAAA9P/5/+n/7//l/+j/6v/m/+//6f/x/+3/8f/v/+7/7f/u/+z/8f/u//f/9f/+//7/BAAGAAwAEAAUABcAHQAdACUAIQApACQAJwAiACMAHwAgABsAIAAbACIAIAAlACcAJwAsACcALAAlACYAIAAZABgACwALAP3//f/w/+//5f/j/+D/2//j/9T/6f/T/+3/1v/p/9v/4v/f/93/4v/e/+X/5P/q/+//8//5/wEAAgARABAAGwAjACQANAAuAD8AOABEAD8ARQA/AEEAPAA5ADQAMgAoACoAHwAgABoAEwAXAAcADwAAAAIA+//z//D/5//h/97/0//W/83/0P/O/9D/1f/Y/9//5f/p//L/8f/7//j//f/9//z////9//3/AAD8/wYAAgAMAA4AFAAaAB8AIwAoACoAKAAvACUALAAhACUAHQAbABkAFAAXAA8AFgANABMADAAPAAsADQAJAA0ABQAMAAEABAD9//r/9f/u/+3/5v/m/+X/4//p/+T/7f/r//D/9P/x//f/8//2//T/8v/x//D/7v/v/+//7//3//H/AAD8/wgADAARABoAGQAgAB4AHwAeABsAHQAXABkAFQAZABgAGgAcACAAHgAkAB4AIgAcAB0AGAASABIAAwAIAPX/+f/r/+n/4v/g/9r/3v/V/97/1v/e/9z/3v/g/+L/4v/q/+b/8P/t//L/9f/0//v/+v8AAAQACAAPABMAGgAfACEAKgAmAC8AJwAsACYAJgAhAB8AGAAbAA4AFwAJABEACAALAAkABQAGAAAA///6//T/8f/o/+b/3v/f/9f/2v/X/9v/2//g/+H/6v/o//L/8P/4//n/+v8AAPz/BwAAAAwACAANAA8ADgAUABMAFAAZABYAGQAbABcAHAAZABcAHQAQABkADgANAAwAAgAGAP3//f/6//b/9P/0/+3/8//r//D/7f/t/+//7P/t/+7/6f/x/+j/8P/s/+v/9P/r//n/8//7//////8IAAgADQASAA8AFwARABcAEgAUABAAEQANAA4ADQAMAA4ACgANAAkACAAIAAEABQD8/wEA9v/+//P/+P/z//L/8v/u//D/7//w//H/8v/y//b/9f/4//n/9//9//f//v/6//r/AAD3/wEA9/8AAPr//P/9//r////9/wEAAgAFAAkACAAPAAoAEQANAA8ADwAMAA4ACQAKAAcABQAFAAMABAADAAIAAwABAAEAAAD+//v//f/2//r/8//0//T/7//0/+3/8P/w/+7/9P/v//b/9v/3//z/+P8AAPr////9//3//v/7//z//v/7/wEA/P8EAAIABQAKAAcADgALAAwADQAKAAsACQAFAAcAAQADAAEAAAADAP3/AwAAAAIAAwACAAQABQABAAUA//8AAP7/9//7//D/8//v/+r/8P/n/+//6v/v/+//8v/z//b/9v/4//r/+P/8//r//v/8//3//v/9/wAA/v8CAAIAAwAJAAUADwAHABAACwANAA0ACgAMAAgACgAHAAkABgAJAAUACAAFAAQABQABAAIAAAD+//7/+f/6//X/9f/x//H/7f/u/+v/6//q/+n/6v/q/+r/7f/u//H/8//1//j/+P/8//n/AAD6/wIA/f8DAAQABAAKAAgADgAOABAAEwATABUAFQAVABUAEwARABAADAALAAUABQD//wEA+f/+//X/+v/z//f/8//1//P/8//x//L/7//w/+3/7P/s/+n/7v/p//D/7f/y//L/9v/3//v/+v8AAP3/AQAAAAIABAAEAAcABwAIAAsACQAOAAwAEAAOABEADwARAA8ADwANAAsACAAGAAIAAQD9//z/+//1//n/8f/2//D/8//y//D/8//x//P/9P/z//f/9P/6//X/+//2//r/9//6//n/+//6//3//P////7/AAAAAAEAAQABAAMAAQAFAAAABgACAAUABQAEAAcABQAHAAgABgAKAAUACgAEAAcABAAEAAMAAQABAP/////+//r//f/4//r/+P/3//n/9v/4//b/9f/3//P/9f/0//L/9//x//f/8//2//b/9//4//r/+v////7/AgABAAQABQAFAAkABwAKAAkACgALAAkADAAHAAsABQAIAAQABQADAAMAAgACAAEAAQD//wAA/f/9//v/+//5//n/9//4//b/9v/2//X/9v/2//b/+P/2//n/9//6//j/+//5//v/+//6//7//P////7/AAAAAAMAAwAFAAUABwAHAAcACAAGAAcABgAFAAUAAwAEAAIAAgABAAAAAQAAAAAAAAD//wAA/v////7//f/9//v//P/5//v/9//6//j/+v/4//r/+v/6//v/+//8//z//f/+//7/////////AAD//wAAAAAAAAEAAAACAAAAAgABAAIAAQABAAEAAAABAAAAAQAAAAAAAAAAAAEAAQACAAIAAwACAAMAAgACAAIAAAACAP//AAD///7//v/9//3//P/8//z/+//8//z/+//7//v/+//7//v/+//8//v//f/8//7//f////7/AAD//wAAAAAAAAEAAQACAAIAAwAEAAMABQAEAAQABQADAAUAAgADAAIAAQACAAAAAAAAAAAA///+//7//f/9//3//P/8//z//P/9//z//f/8//3//f/9//7//v/+/////v////7//////wAAAAAAAAAAAAAAAAAAAgAAAAIAAQACAAIAAgACAAIAAgACAAIAAgABAAEAAQAAAAAAAAAAAP/////+/////f////3////+//7//v/+//7//v/+/////v//////////////AAD//wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAABAAEAAQABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//wAA/////////////////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
@@ -502,84 +501,7 @@ function move(dir){
  }
  playWheelClick();
 }
-// The spatial hit test uses the same projection as the visible blue letters.
-// A touch begins on ONE wheel, never on both; crossing into the other wheel
-// mid-swipe has no effect. Blue letters in the central orange column are
-// intentionally not draggable; use the blue left/right arcs instead.
-function touchWheelAt(x,y){
- const wide=width/height>1.15;
- const R=Math.min(wide?269:242,width*.37,height*(wide?.35:.30));
- const V=Math.min(172,R*(wide?.71:.90),height*(wide?.26:.24));
- const cx=width*.5,cy=height*(wide?.49:.51)+4;
- const front=project(0,R*Math.sin(tilt),-R*Math.cos(tilt),cx,cy);
- const crossingY=front.y;
- // Orange vertical wheel: a narrow, central strip from first to third visible letter.
- if(Math.abs(x-cx)<=Math.min(34,Math.max(25,R*.22)) &&
-    Math.abs(y-crossingY)<=V*.79+12)return 'vertical';
- // Blue horizontal wheel: start directly on a letter or close to the ring arc.
- // Exclude the orange overlap so horizontal gestures cannot accidentally
- // alter the vertical alphabet.
- if(Math.abs(x-cx)<Math.max(42,R*.30))return null;
- let nearBlue=false;
- for(let i=0;i<wheel.length;i++){
-  const angle=-Math.PI/2+i*hs()+horizontalPhase;
-  const z=R*Math.sin(angle), xx=R*Math.cos(angle);
-  const p=project(xx,-z*Math.sin(tilt),z*Math.cos(tilt),cx,cy);
-  if(Math.hypot(x-p.x,y-p.y)<=Math.max(31,38*R/230)){
-   nearBlue=true;break;
-  }
- }
- return nearBlue?'horizontal':null;
-}
-const TOUCH_HORIZONTAL_STEP=58, TOUCH_VERTICAL_STEP=50;
-const TOUCH_MIN_DURATION_MS=115, TOUCH_AXIS_RATIO=1.9;
-let touchDrag=null,touchIgnoreUntilRelease=false;
-function endTouch(event){
- if(!touchDrag||(event&&touchDrag.id!==event.pointerId))return;
- try{if(canvas.hasPointerCapture(touchDrag.id))canvas.releasePointerCapture(touchDrag.id);}catch(e){}
- touchDrag=null;
-}
-canvas.addEventListener('pointerdown',event=>{
- if(event.pointerType!=='touch'&&event.pointerType!=='pen')return;
- if(touchDrag){
-  // Second finger cancels the first gesture. No multi-touch movement.
-  touchIgnoreUntilRelease=true;
-  endTouch();return;
- }
- if(touchIgnoreUntilRelease||!gameRunning||transition||finished)return;
- const wheelAxis=touchWheelAt(event.clientX,event.clientY);
- if(!wheelAxis)return;
- unlockClick();
- touchDrag={id:event.pointerId,x:event.clientX,y:event.clientY,
-   t:event.timeStamp,axis:wheelAxis,moved:false,cancelled:false};
- try{canvas.setPointerCapture(event.pointerId);}catch(e){}
- event.preventDefault();
-},{passive:false});
-canvas.addEventListener('pointermove',event=>{
- const drag=touchDrag;
- if(!drag||drag.id!==event.pointerId)return;
- if(!gameRunning||transition||finished){endTouch(event);return;}
- if(drag.moved||drag.cancelled)return;
- const dx=event.clientX-drag.x,dy=event.clientY-drag.y;
- const primary=drag.axis==='horizontal'?dx:dy;
- const offAxis=drag.axis==='horizontal'?dy:dx;
- // A diagonal / wrong-axis swipe is rejected rather than reassigned.
- if(Math.abs(offAxis)>18&&Math.abs(offAxis)*TOUCH_AXIS_RATIO>Math.abs(primary)){
-  drag.cancelled=true;return;
- }
- const threshold=drag.axis==='horizontal'?TOUCH_HORIZONTAL_STEP:TOUCH_VERTICAL_STEP;
- if(Math.abs(primary)<threshold)return;
- if(Math.abs(primary)<Math.abs(offAxis)*TOUCH_AXIS_RATIO){drag.cancelled=true;return;}
- // Fast flicks don't even get a free increment: deliberate travel only.
- if(event.timeStamp-drag.t<TOUCH_MIN_DURATION_MS){drag.cancelled=true;return;}
- const direction=drag.axis==='horizontal'?(primary>0?'left':'right'):(primary>0?'up':'down');
- drag.moved=true; // only ONE step until the finger is lifted
- move(direction);
- event.preventDefault();
-},{passive:false});
-canvas.addEventListener('pointerup',event=>{endTouch(event);touchIgnoreUntilRelease=false;});
-canvas.addEventListener('pointercancel',event=>{endTouch(event);touchIgnoreUntilRelease=false;});
-window.addEventListener('blur',()=>{endTouch();touchIgnoreUntilRelease=false;});
+// Wheel dragging is intentionally disabled. The wheel is visual-only.
 window.addEventListener('keydown',e=>{
  const dirs={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down'};
  if(dirs[e.key]){e.preventDefault();move(dirs[e.key]);}
@@ -777,7 +699,7 @@ function render(t){
 // Expose read-only game state for local automated browser tests only.
 window.__wheelTest={getState:()=>wheel.map(i=>ABC[i]).join(''),getCursor:()=>cursor,
  getWords:()=>PUZZLES[puzzleIndex].words.slice(),getMirrorRear:()=>mirrorRear,getReference:()=>PUZZLES[puzzleIndex].reference,getPuzzle:()=>PUZZLES[puzzleIndex].name,getLevel:()=>level,getMoves:()=>moves,getTime:()=>timeMs(),getScore:()=>lastRunScore,
- getTouchZone:touchWheelAt,getAudioState:()=>clickContext?.state||"not initialized",move,reset,start:()=>{if(!gameRunning){gameRunning=true;activeSince=performance.now();$('readyOverlay').hidden=true;}},findCurrent:()=>findWord(PUZZLES[puzzleIndex].words[Math.min(level,PUZZLES[puzzleIndex].words.length-1)])};
+ getAudioState:()=>clickContext?.state||"not initialized",move,reset,start:()=>{if(!gameRunning){gameRunning=true;activeSince=performance.now();$('readyOverlay').hidden=true;}},findCurrent:()=>findWord(PUZZLES[puzzleIndex].words[Math.min(level,PUZZLES[puzzleIndex].words.length-1)])};
 reset();requestAnimationFrame(render);
 })();
 </script>
