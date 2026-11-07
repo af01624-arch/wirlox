@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>WIRLOX · Puzzle Factory 4.1</title>
+<title>WIRLOX · Puzzle Bank 01 · Factory 4.2</title>
 <style>
   :root{color-scheme:dark;--blue:#8bd4ff;--warm:#ffe69a;--muted:#99a8c4;--panel:rgba(8,15,34,.72)}
   *{box-sizing:border-box}
@@ -127,30 +127,22 @@
 <canvas id="wheel"></canvas>
 <div class="head">
  <div class="panel">
-  <h1>WIRLOX <span class="version">· FACTORY TEST 4.1</span></h1>
+  <h1>WIRLOX <span class="version">· FACTORY 4.2 · BANK 01</span></h1>
   <div class="sub">← → position · ↑ ↓ change letter · opposite pair moves with it</div>
-  <div class="dayMood" id="dayMood">MONDAY · WARM-UP · 14 LETTERS</div>
+  <div class="dayMood" id="dayMood">PUZZLE 01 / 07 · WARM-UP · 14 LETTERS</div>
   <div class="statLine">Time: <strong id="timer">0:00</strong> <span class="sep">|</span> Moves: <strong id="moves">0</strong> <span class="sep">|</span> PB: <strong id="pb">—</strong> <span class="sep">|</span> Word: <strong id="wordCount">1 / 3</strong><span id="minimumHeader" hidden> <span class="sep">|</span> Perfect: <strong id="minimumHeaderScore">—</strong></span></div>
  </div>
- <div class="panel targetBox"><div class="eyebrow" id="dayLabel">MONDAY · WORD 1</div>
+ <div class="panel targetBox"><div class="eyebrow" id="dayLabel">PUZZLE 01 · WORD 1</div>
   <div id="target">APPLE</div><div id="tierLine" class="statLine">Perfect score revealed after completion</div>
  </div>
 </div>
 <div class="stagebar" id="stagebar"></div>
 <div class="help"><span class="legendHorizontal">●</span> Horizontal alphabet &nbsp; <span class="legendVertical">●</span> Vertical alphabet<br>14 letters · three familiar words.<br>← → position &nbsp; ↑ ↓ alter linked letters.<br>Every arrow press costs one move. Stopwatch is secondary.</div>
 <div class="tools">
- <select id="puzzle" aria-label="Choose weekday puzzle">
-  <option value="0">Monday · APPLE / PLANT / TRAIN</option>
-  <option value="1">Tuesday · MOUSE / BREAD / RIVER</option>
-  <option value="2">Wednesday · BRUSH / STONE / GHOST</option>
-  <option value="3">Thursday · CLOUD / TRAIN / FLAME</option>
-  <option value="4">Friday · GRAPE / FIELD / CANDY</option>
-  <option value="5">Saturday · SHINE / BRICK / DREAM</option>
-  <option value="6">Sunday · BEACH / GREEN / WATER</option>
- </select>
+ <select id="puzzle" aria-label="Choose puzzle from bank"></select>
  <button id="rearToggle" type="button" aria-pressed="false" title="Change how the back letters are displayed">Rear: readable</button>
  <button id="reset" type="button">↻ Restart</button>
- <button id="next" type="button">Next day →</button>
+ <button id="next" type="button">Next puzzle →</button>
 </div>
 <div class="controls" aria-label="Touch arrow controls">
  <button class="up" type="button" data-dir="up" aria-label="Previous letter">↑</button>
@@ -180,8 +172,8 @@
    <input id="feedbackNote" type="text" placeholder="Optional: aha moment, overlap, repetition…" aria-label="Playtest feedback note" maxlength="240" />
    <button id="saveFeel" type="button">Save note</button>
  </div>
- <div class="resultActions"><button id="playAgain" type="button">Try again</button><button id="nextDone" type="button">Next day →</button></div>
- <button id="copyFeedback" type="button">Copy seven-day feedback</button>
+ <div class="resultActions"><button id="playAgain" type="button">Try again</button><button id="nextDone" type="button">Next puzzle →</button></div>
+ <button id="copyFeedback" type="button">Copy puzzle-bank feedback</button>
  <div class="copyStatus" id="copyStatus" role="status"></div>
  <textarea id="copyFallback" readonly aria-label="Feedback to copy" style="display:none"></textarea>
 </div>
@@ -189,7 +181,7 @@
   <div class="readyCard">
     <div class="eyebrow">THE CLOCK STARTS WHEN YOU CHOOSE</div>
     <h2 id="readyTitle">READY TO PLAY?</h2>
-    <div class="sub" id="readyMode">Monday · 14 letters · 3 words</div>
+    <div class="sub" id="readyMode">Puzzle 01 / 07 · 14 letters · 3 words</div>
     <div class="readyWords" id="readyWords">HOUSE · SMILE · PLANT</div>
     <p>All three targets are visible. Find them in order; the wheels retain every change. Moves determine your result, while the stopwatch is a secondary stat.</p>
     <p><b>No time limit.</b> Try both rear-letter display modes — switching costs no moves.</p>
@@ -201,8 +193,11 @@
 'use strict';
 const ABC='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const PUZZLES=[{"name":"F4-Monday","day":"Monday","mood":"Warm-up","mode":"14 letters \u00b7 3 words","start":"NTCRTYINVANRJE","words":["APPLE","PLANT","TRAIN"],"reference":20,"excellent":23,"good":28,"average":36},{"name":"F4-Tuesday","day":"Tuesday","mood":"Find the links","mode":"14 letters \u00b7 3 words","start":"REBGSIZERNRVSI","words":["MOUSE","BREAD","RIVER"],"reference":21,"excellent":24,"good":29,"average":37},{"name":"F4-Wednesday","day":"Wednesday","mood":"Plan ahead","mode":"14 letters \u00b7 3 words","start":"SWOPCDQSWBTSOJ","words":["BRUSH","STONE","GHOST"],"reference":22,"excellent":25,"good":30,"average":38},{"name":"F4-Thursday","day":"Thursday","mood":"Hidden leverage","mode":"14 letters \u00b7 3 words","start":"MCNNXHQRAKMIPX","words":["CLOUD","TRAIN","FLAME"],"reference":21,"excellent":24,"good":29,"average":37},{"name":"F4-Friday","day":"Friday","mood":"The challenge","mode":"14 letters \u00b7 3 words","start":"PEAMFPAPGIDKBX","words":["GRAPE","FIELD","CANDY"],"reference":26,"excellent":29,"good":34,"average":42},{"name":"F4-Saturday","day":"Saturday","mood":"Expert wheel","mode":"14 letters \u00b7 3 words","start":"RIBLJDSEARIGNF","words":["SHINE","BRICK","DREAM"],"reference":26,"excellent":29,"good":34,"average":42},{"name":"F4-Sunday","day":"Sunday","mood":"The slow spin","mode":"14 letters \u00b7 3 words","start":"YFACHREBOZZWAT","words":["BEACH","GREEN","WATER"],"reference":23,"excellent":26,"good":31,"average":39}];
-const canvas=document.getElementById('wheel'),ctx=canvas.getContext('2d');
+const puzzleLabel = i => `Puzzle ${String(i+1).padStart(2,'0')}`;
+const puzzleTag = i => `PUZZLE ${String(i+1).padStart(2,'0')} / ${String(PUZZLES.length).padStart(2,'0')}`;
 const $=id=>document.getElementById(id);
+$('puzzle').innerHTML=PUZZLES.map((p,i)=>`<option value="${i}">${puzzleLabel(i)} · ${p.words.join(' / ')}</option>`).join('');
+const canvas=document.getElementById('wheel'),ctx=canvas.getContext('2d');
 const TWO=Math.PI*2,tilt=Math.PI*.10,perspective=950,verticalStep=TWO/26;
 let puzzleIndex=0,level=0,moves=0,breakdown=[],wheel=[],cursor=0,verticalRaw=0;
 let horizontalPhase=0,targetHorizontalPhase=0,verticalPhase=0,targetVerticalPhase=0;
@@ -234,7 +229,7 @@ function readReview(){const key=reviewKey();if(sessionReview[key])return session
 function writeReview(o){const key=reviewKey();sessionReview[key]=o;try{localStorage.setItem(key,JSON.stringify(o));}catch(e){}}
 function updateFeedback(){const obj=readReview();$('feedbackNote').value=obj.note||'';document.querySelectorAll('[data-feel]').forEach(b=>b.classList.toggle('selected',b.dataset.feel===obj.feel));$('copyStatus').textContent='';$('copyFallback').style.display='none';}
 function saveReview(){const old=readReview();writeReview({feel:old.feel,note:$('feedbackNote').value.trim()});$('copyStatus').textContent='Feedback saved locally for this puzzle.';}
-function weeklyNotes(){return ['WIRLOX — Factory Test 4',...PUZZLES.map(p=>{
+function bankNotes(){return ['WIRLOX — Puzzle Bank 01',...PUZZLES.map((p,i)=>{
  const stored=sessionPB[p.name];let best=stored??null;
  if(best===null){try{best=Number(localStorage.getItem('wirlox-factory4-'+p.name))||null;}catch(e){}}
  const key='wirlox-factory4-review-'+p.name;let r=sessionReview[key]||null;
@@ -242,30 +237,32 @@ function weeklyNotes(){return ['WIRLOX — Factory Test 4',...PUZZLES.map(p=>{
  let timed=null;try{timed=JSON.parse(localStorage.getItem('wirlox-factory4-fastest-'+p.name)||'null');}catch(e){}
  const timedLabel=timed?` | best-time-at-PB ${clockText(timed.seconds)} (${timed.moves} moves)`:'';
  const gap=best===null?'—':(best-p.reference>=0?'+'+(best-p.reference):''+(best-p.reference));
- return `${p.mode} · ${p.day}: ${p.words.join(' / ')} | PB ${best??'not played'} | perfect ${best===null?'hidden':p.reference} | gap ${gap} | ${r?.feel||'no rating'}${r?.note?' | '+r.note:''}${timedLabel}`;
+ return `${p.mode} · ${puzzleLabel(i)}: ${p.words.join(' / ')} | PB ${best??'not played'} | perfect ${best===null?'hidden':p.reference} | gap ${gap} | ${r?.feel||'no rating'}${r?.note?' | '+r.note:''}${timedLabel}`;
  })].join('\n');}
-function copyAllNotes(){const str=weeklyNotes();if(navigator.clipboard?.writeText){navigator.clipboard.writeText(str).then(()=>{$('copyStatus').textContent='Weekly feedback copied.';}).catch(()=>fallbackCopy(str));}else fallbackCopy(str);}
-function fallbackCopy(str){const ta=$('copyFallback');ta.style.display='block';ta.value=str;ta.focus();ta.select();try{if(document.execCommand('copy')){$('copyStatus').textContent='Weekly feedback copied.';ta.style.display='none';return;}}catch(e){}$('copyStatus').textContent='Select and copy this feedback text.';}
+function copyAllNotes(){const str=bankNotes();if(navigator.clipboard?.writeText){navigator.clipboard.writeText(str).then(()=>{$('copyStatus').textContent='Puzzle-bank feedback copied.';}).catch(()=>fallbackCopy(str));}else fallbackCopy(str);}
+function fallbackCopy(str){const ta=$('copyFallback');ta.style.display='block';ta.value=str;ta.focus();ta.select();try{if(document.execCommand('copy')){$('copyStatus').textContent='Puzzle-bank feedback copied.';ta.style.display='none';return;}}catch(e){}$('copyStatus').textContent='Select and copy this feedback text.';}
 function resize(){dpr=Math.min(devicePixelRatio||1,2.5);width=innerWidth;height=innerHeight;
  canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);}
 window.addEventListener('resize',resize);resize();
 function updateUI(){
  const p=PUZZLES[puzzleIndex];$('target').textContent=p.words[Math.min(level,p.words.length-1)];
- $('dayMood').textContent=`${p.day.toUpperCase()} · ${p.mood.toUpperCase()} · 14 LETTERS`;
- $('dayLabel').textContent=`${p.day.toUpperCase()} · WORD ${Math.min(level+1,p.words.length)}`;
+ $('dayMood').textContent=`${puzzleTag(puzzleIndex)} · ${p.mood.toUpperCase()} · 14 LETTERS`;
+ $('dayLabel').textContent=`${puzzleLabel(puzzleIndex).toUpperCase()} · WORD ${Math.min(level+1,p.words.length)}`;
  $('wordCount').textContent=`${Math.min(level+1,p.words.length)} / ${p.words.length}`;
  $('moves').textContent=moves; $('pb').textContent=getPB()??'—';
  const alreadyPlayed=getPB()!==null || finished;
  $('minimumHeader').hidden=!alreadyPlayed;
  $('minimumHeaderScore').textContent=alreadyPlayed?p.reference:'—';
  $('tierLine').textContent=`Excellent ≤ ${p.excellent} · Good ≤ ${p.good}`;
- $('stagebar').innerHTML=p.words.map((word,i)=>`<div class="wordpill ${i<level?'done':i===level?'active':''}">${i<level?'✓ ':''}${word}${i<level?` · ${breakdown[i]}`:''}</div>`).join('');
+ const nextText=puzzleIndex===PUZZLES.length-1?'Back to puzzle 01 ↺':'Next puzzle →';
+  $('next').textContent=nextText;$('nextDone').textContent=nextText;
+  $('stagebar').innerHTML=p.words.map((word,i)=>`<div class="wordpill ${i<level?'done':i===level?'active':''}">${i<level?'✓ ':''}${word}${i<level?` · ${breakdown[i]}`:''}</div>`).join('');
 }
 function reset(){
  if(stageTimeout)clearTimeout(stageTimeout);if(toastTimeout)clearTimeout(toastTimeout);
  const p=PUZZLES[puzzleIndex];wheel=[...p.start].map(ch=>ABC.indexOf(ch));
  gameRunning=false;elapsedMs=0;activeSince=0;lastShownSeconds=-1;lastRunScore=null;
- $('readyMode').textContent=`${p.day} · ${p.mood} · 14 letters / 3 words`;
+ $('readyMode').textContent=`${puzzleLabel(puzzleIndex)} of ${PUZZLES.length} · ${p.mood} · 14 letters / 3 words`;
  $('readyWords').textContent=p.words.join(' · ');
  $('readyOverlay').hidden=false;
  cursor=0;verticalRaw=wheel[0];horizontalPhase=targetHorizontalPhase=0;
@@ -296,7 +293,7 @@ function showResults(){
  const p=PUZZLES[puzzleIndex];
  const finalSeconds=Math.floor(timeMs()/1000),score=moves;lastRunScore=score;
  savePB();saveScorePB(score,finalSeconds);updateUI();
- $('target').textContent='COMPLETE';$('dayLabel').textContent=`${p.day.toUpperCase()} · FINISHED`;
+ $('target').textContent='COMPLETE';$('dayLabel').textContent=`${puzzleLabel(puzzleIndex).toUpperCase()} · FINISHED`;
  $('wordCount').textContent=`${p.words.length} / ${p.words.length}`;
  $('resultTitle').textContent=`${p.words.length} WORDS FOUND`;
  const tier=moves<=p.excellent?'Excellent':moves<=p.good?'Good':moves<=p.average?'Average':'Finished';
@@ -312,7 +309,7 @@ function showResults(){
  $('minimumExplanation').textContent=gap<0?'Your score appears below the computed minimum. Please report this result so we can check the solver.':
    gap===0?'You achieved the mathematically proven minimum. No shorter solution exists under these rules.':
    `The mathematically proven minimum is ${gap} ${gap===1?'move':'moves'} below your result. The solution remains hidden.`;
- $('finalDetail').textContent=`${p.day} · ${p.words.join(' · ')} | ${breakdown.join(' + ')} moves.`;
+ $('finalDetail').textContent=`${puzzleLabel(puzzleIndex)} · ${p.words.join(' · ')} | ${breakdown.join(' + ')} moves.`;
  $('results').style.display='block';updateFeedback();
 }
 function horizontal(delta){
