@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>WIRLOX · Puzzle Bank 01 · Factory 5.0</title>
+<title>WIRLOX · Puzzle Bank 01 · Factory 5.1</title>
 <style>
   :root{color-scheme:dark;--blue:#8bd4ff;--warm:#ffe69a;--muted:#99a8c4;--panel:rgba(8,15,34,.72)}
   *{box-sizing:border-box}
@@ -250,13 +250,150 @@
       grid-column:auto;grid-row:auto;
     }
   }
+
+/* Factory 5.1 — gameplay layout. Reproduces the approved portrait and landscape
+   concept screenshots using the ORIGINAL 5.0 canvas drawing and 88px arrows.
+   Game rules, scoring, puzzles, sound and arrow interactions are untouched. */
+html,body{background:radial-gradient(ellipse 85% 68% at 50% 43%, #173450 0%,#0b1e36 55%,#071021 100%)}
+/* All old UI remains live for stats and game logic, but is only displayed in Menu. */
+.head,.stagebar,.help,.tools,#mobileMenuButton{display:none!important}
+#mobileOverlay[hidden]{display:none!important}
+#mobileOverlay{position:fixed;inset:0;z-index:15;display:flex!important;align-items:center;
+ justify-content:center;padding:20px;background:rgba(3,9,22,.74)}
+.mobileMenuCard{width:min(470px,96vw);max-height:83dvh;overflow:auto;
+ border:1px solid rgba(164,203,250,.36);border-radius:18px;padding:18px;
+ background:linear-gradient(150deg,rgba(24,36,66,.985),rgba(9,17,33,.985));
+ box-shadow:0 15px 60px #0009}
+#mobileMenuSlot{display:flex;flex-direction:column;gap:10px}
+#mobileMenuSlot .head{display:flex!important;position:static;inset:auto;transform:none;
+ pointer-events:auto;gap:7px;align-items:stretch}
+#mobileMenuSlot .head .panel{flex:1;min-width:0;padding:9px}
+#mobileMenuSlot .head h1{font-size:13px}
+#mobileMenuSlot .head .sub{display:none}
+#mobileMenuSlot .head .dayMood{font-size:10px}
+#mobileMenuSlot .head .statLine{font-size:10px;line-height:1.5}
+#mobileMenuSlot .head .targetBox{min-width:100px;flex:0 1 38%}
+#mobileMenuSlot #target{font-size:21px}
+#mobileMenuSlot .tools{display:grid!important;position:static;inset:auto;transform:none;
+ grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;width:100%;pointer-events:auto;align-items:stretch}
+#mobileMenuSlot .tools select{grid-column:1/-1;width:100%;max-width:none;font-size:12px;min-height:38px}
+#mobileMenuSlot .tools button{font-size:12px;min-height:40px;padding:6px 4px}
+#mobileMenuSlot #rearToggle{font-size:11px;white-space:normal}
+#mobileMenuSlot .controls{display:none!important}
+#focusUI{position:fixed;inset:0;z-index:8;pointer-events:none;font-family:Arial,Helvetica,sans-serif;color:#e3f1fa}
+#focusUI *{box-sizing:border-box}
+#focusUI .focusNav{position:absolute;top:22px;left:38px;right:38px;display:flex;justify-content:space-between;align-items:center}
+#focusUI .focusBrand{font-size:19px;letter-spacing:.18em;font-weight:800;color:#c2edfa;text-shadow:0 0 22px #52b4ec77}
+#focusUI .focusNavRight{display:flex;gap:22px;align-items:center;color:#a6bad0}
+#focusUI .focusPuzzle{font-size:11px;letter-spacing:.16em;font-weight:700;color:#9ab4ce}
+#focusUI .focusMoves{font-size:11px;letter-spacing:.13em;font-weight:700;color:#afc8dc}
+#focusUI .focusMoves strong{font-size:17px;letter-spacing:0;margin-left:8px;color:#e9f6fa}
+#focusMenu{font-size:11px;letter-spacing:.07em;font-weight:700;border:1px solid rgba(143,194,231,.31);
+ background:#10263cbf;border-radius:10px;padding:10px 16px;color:#b9d3e5;pointer-events:auto;cursor:pointer}
+#focusUI .focusHero{position:absolute;top:75px;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:0}
+#focusUI .focusActive{width:345px;min-height:118px;border:2px solid #d4a25d;border-radius:18px;
+ background:linear-gradient(145deg,rgba(86,57,23,.30),rgba(36,34,27,.21));
+ box-shadow:0 0 24px #b9864125,inset 0 0 22px #bd9a3e16;
+ display:flex;flex-direction:column;align-items:center;justify-content:center}
+#focusUI .focusCaption{font-size:11px;font-weight:800;letter-spacing:.26em;color:#deb67e;margin-bottom:10px}
+#focusUI .focusCurrent{font-size:62px;line-height:1;letter-spacing:.15em;padding-left:.15em;
+ font-weight:850;color:#ffd69b;text-shadow:0 0 30px #e7a45d50,0 0 3px #f6c08188}
+#focusUI .focusQueue{display:flex;justify-content:center;align-items:center;gap:9px;margin-top:14px}
+#focusUI .focusThen{font-size:10px;font-weight:800;letter-spacing:.14em;color:#7c9ab4;margin-right:3px}
+#focusUI .focusNext{font-weight:750;font-size:13px;letter-spacing:.12em;color:#b0c4d5;
+ border:1px solid rgba(126,175,208,.34);background:rgba(31,64,84,.18);
+ padding:10px 16px;border-radius:9px}
+#focusUI .focusNext small{font-size:9px;color:#6b8aa4;margin-right:8px;letter-spacing:0}
+#focusUI .focusNext.done{color:#9de6cf;border-color:rgba(137,216,185,.3)}
+#focusUI .focusTiers{display:flex;gap:28px;justify-content:center;align-items:baseline;margin-top:18px}
+#focusUI .focusTier{font-size:10px;letter-spacing:.105em;color:#91acc0;white-space:nowrap}
+#focusUI .focusTier b{font-size:14px;color:#d3e9e9;margin-left:7px;letter-spacing:0}
+#focusUI .focusTier.excellent b{color:#edca91}
+#focusUI .focusStatsFooter{display:none}
+/* The wheel itself has not been redesigned: visual shift matches approved previews. */
+canvas#wheel{transform:translateY(65px)}
+@media(max-width:700px){
+  #focusUI .focusNav{top:16px;left:15px;right:15px}
+  #focusUI .focusBrand{font-size:15px;letter-spacing:.18em}
+  #focusUI .focusNavRight{gap:10px}
+  #focusUI .focusPuzzle{font-size:10px;letter-spacing:.06em}
+  #focusUI .focusMoves{display:none}
+  #focusMenu{padding:9px 12px;font-size:11px;border-radius:9px}
+  #focusUI .focusHero{top:71px}
+  #focusUI .focusActive{width:min(300px,calc(100vw - 54px));min-height:117px;border-radius:16px}
+  #focusUI .focusCaption{font-size:10px;letter-spacing:.24em;margin-bottom:10px}
+  #focusUI .focusCurrent{font-size:54px;letter-spacing:.14em;padding-left:.14em}
+  #focusUI .focusQueue{margin-top:13px;gap:7px}
+  #focusUI .focusThen{font-size:9px;letter-spacing:.1em;margin-right:1px}
+  #focusUI .focusNext{font-size:12px;letter-spacing:.05em;padding:9px 10px;border-radius:8px}
+  #focusUI .focusNext small{font-size:8px;margin-right:5px}
+  #focusUI .focusTiers{margin-top:16px;gap:13px}
+  #focusUI .focusTier{display:flex;flex-direction:column;align-items:center;gap:4px;
+    font-size:9px;letter-spacing:.03em}
+  #focusUI .focusTier b{font-size:15px;margin-left:0}
+  #focusUI .focusStatsFooter{display:flex;position:absolute;bottom:14px;left:0;right:0;
+   justify-content:center;gap:20px;font-size:9px;letter-spacing:.10em;color:#83a4be}
+  #focusUI .focusStatsFooter b{font-size:12px;color:#cfe5ec;letter-spacing:0;margin-left:4px}
+  canvas#wheel{transform:translateY(70px)}
+  /* Keep the previously approved *actual* 88x88 arrow controls. Shift along
+     with the visually shifted wheel; don't alter their movement or click logic. */
+  .controls button{transform:translate(-50%,-50%) translateY(70px)}
+  #mobileOverlay{align-items:flex-end;justify-content:center;padding:0}
+  .mobileMenuCard{width:100%;max-height:min(460px,76dvh);padding:12px 13px calc(env(safe-area-inset-bottom,0px) + 12px);
+   border-radius:18px 18px 0 0;border-bottom:0}
+}
+/* The Archive is a selector on the existing Puzzle Bank; no puzzle logic changes. */
+#archiveView[hidden],#startRun[hidden]{display:none!important}
+#archiveView h2{font-size:23px;margin:9px 0 8px}
+#archiveList{display:flex;flex-direction:column;gap:6px;max-height:45dvh;overflow:auto;margin:12px 0}
+#archiveList button{display:flex;justify-content:space-between;align-items:center;gap:8px;
+ text-align:left;font-size:12px;color:#deecff;padding:10px;border-radius:9px}
+#archiveList button.currentArchive{border-color:#d4a25d;background:rgba(86,57,23,.22)}
+#archiveBack,#openArchive{font-size:12px;color:#b4d7ec;background:transparent;border-color:rgba(133,173,216,.3);margin-top:9px}
+.splashDate{font-size:11px;letter-spacing:.09em;color:#a9c5dc;margin:8px 0 0}
+#readyOverlay{background:rgba(5,11,27,.965)}
+
+/* Short landscape windows: move the word information to the free left rail,
+   never over either wheel. Regular 1280x800 landscape stays pixel-identical. */
+@media(min-width:701px) and (max-height:600px){
+  #focusUI .focusHero{top:69px;left:14px;right:auto;width:224px;align-items:center}
+  #focusUI .focusActive{width:216px;min-height:82px;border-radius:13px}
+  #focusUI .focusCaption{font-size:9px;letter-spacing:.19em;margin-bottom:7px}
+  #focusUI .focusCurrent{font-size:39px}
+  #focusUI .focusQueue{margin-top:10px;gap:5px;flex-wrap:wrap}
+  #focusUI .focusThen{font-size:9px}
+  #focusUI .focusNext{font-size:10px;padding:7px 9px}
+  #focusUI .focusNext small{font-size:8px;margin-right:4px}
+  #focusUI .focusTiers{margin-top:12px;gap:6px;flex-direction:column;align-items:center}
+  #focusUI .focusTier{font-size:9px}
+  #focusUI .focusTier b{font-size:11px}
+  canvas#wheel{transform:none}
+}
+
 </style>
 </head>
 <body>
 <canvas id="wheel"></canvas>
+<div id="focusUI" aria-label="Current puzzle and target words">
+  <div class="focusNav"><div class="focusBrand">WIRLOX</div><div class="focusNavRight">
+    <div class="focusPuzzle" id="focusPuzzle">PUZZLE 01 / 07</div>
+    <div class="focusMoves">MOVES <strong id="focusMoves">0</strong></div>
+    <button id="focusMenu" type="button" aria-haspopup="dialog" aria-expanded="false">☰ &nbsp; MENU</button>
+  </div></div>
+  <div class="focusHero"><div class="focusActive"><div class="focusCaption" id="focusCaption">WORD 1 OF 3</div>
+    <div class="focusCurrent" id="focusCurrent">APPLE</div></div>
+    <div class="focusQueue" id="focusQueue"><span class="focusThen">THEN</span>
+      <div class="focusNext"><small>02</small>PLANT</div><div class="focusNext"><small>03</small>TRAIN</div>
+    </div>
+    <div class="focusTiers"><span class="focusTier excellent">EXCELLENT <b id="focusExcellent">≤23</b></span>
+      <span class="focusTier">GOOD <b id="focusGood">≤28</b></span>
+      <span class="focusTier">AVERAGE <b id="focusAverage">≤36</b></span></div>
+  </div>
+  <div class="focusStatsFooter"><span>MOVES <b id="focusMovesMobile">0</b></span><span>TIME <b id="focusTime">0:00</b></span><span>PB <b id="focusPB">—</b></span></div>
+</div>
 <div class="head">
  <div class="panel">
-  <h1>WIRLOX <span class="version">· FACTORY 5.0 · BANK 01</span></h1>
+  <h1>WIRLOX <span class="version">· FACTORY 5.1 · BANK 01</span></h1>
   <div class="sub">← → position · ↑ ↓ change letter · opposite pair moves with it</div>
   <div class="dayMood" id="dayMood">PUZZLE 01 / 07 · WARM-UP · 14 LETTERS</div>
   <div class="statLine">Time: <strong id="timer">0:00</strong> <span class="sep">|</span> Moves: <strong id="moves">0</strong> <span class="sep">|</span> PB: <strong id="pb">—</strong> <span class="sep">|</span> Word: <strong id="wordCount">1 / 3</strong><span id="minimumHeader" hidden> <span class="sep">|</span> Perfect: <strong id="minimumHeaderScore">—</strong></span></div>
@@ -317,6 +454,7 @@
   <div class="readyCard">
     <div id="introView">
       <div class="eyebrow">WIRLOX · HOW TO PLAY</div>
+      <div class="splashDate" id="introDate"></div>
       <h2 id="readyTitle" class="introTitle"><span>THREE WORDS.</span><span>TWO WHEELS.</span><span>FEWEST MOVES.</span></h2>
       <div class="introRule" aria-hidden="true"></div>
       <div class="introCopy">
@@ -328,10 +466,18 @@
     </div>
     <div id="quickView" hidden>
       <div class="eyebrow">PUZZLE BANK 01</div>
+      <div class="splashDate" id="quickDate"></div>
       <h2 class="quickBrand" id="quickTitle">WIRLOX</h2>
       <div id="readyMode">Puzzle 01 of 7</div>
       <div class="quickTag">Three words · Fewest moves wins</div>
       <button id="showHowToPlay" type="button">How to play</button>
+      <button id="openArchive" type="button">Archive</button>
+    </div>
+    <div id="archiveView" hidden>
+      <div class="eyebrow">WIRLOX · PUZZLE BANK 01</div>
+      <h2 id="archiveHeading">Archive</h2>
+      <div id="archiveList"></div>
+      <button id="archiveBack" type="button">← Back</button>
     </div>
     <button id="startRun" type="button">LET'S PLAY</button>
   </div>
@@ -357,7 +503,7 @@ const secondsForScore=()=>Math.max(1,Math.floor(timeMs()/1000));
 const clockText=sec=>`${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`;
 function freezeTime(){if(gameRunning&&!transition&&!finished){elapsedMs+=performance.now()-activeSince;activeSince=0;}}
 function resumeTime(){if(gameRunning&&!finished)activeSince=performance.now();}
-function refreshClock(){const sec=Math.floor(timeMs()/1000);if(sec!==lastShownSeconds){lastShownSeconds=sec;$('timer').textContent=clockText(sec);$('timer').classList.toggle('overtime',sec>=300);}}
+function refreshClock(){const sec=Math.floor(timeMs()/1000);if(sec!==lastShownSeconds){lastShownSeconds=sec;$('timer').textContent=clockText(sec);$('focusTime').textContent=clockText(sec);$('timer').classList.toggle('overtime',sec>=300);}}
 function scoreKey(){return 'wirlox-factory4-fastest-'+PUZZLES[puzzleIndex].name;}
 function getScorePB(){try{return JSON.parse(localStorage.getItem(scoreKey())||'null');}catch(e){return null;}}
 function saveScorePB(score,seconds){const prev=getScorePB();if(!prev||score<prev.score||(score===prev.score&&seconds<prev.seconds)){try{localStorage.setItem(scoreKey(),JSON.stringify({score,seconds,moves}));}catch(e){}}}
@@ -405,21 +551,55 @@ function updateUI(){
  const nextText=puzzleIndex===PUZZLES.length-1?'Back to puzzle 01 ↺':'Next puzzle →';
   $('next').textContent=nextText;$('nextDone').textContent=nextText;
   $('stagebar').innerHTML=p.words.map((word,i)=>`<div class="wordpill ${i<level?'done':i===level?'active':''}">${i<level?'✓ ':''}${word}${i<level?` · ${breakdown[i]}`:''}</div>`).join('');
+  // Approved target-word hierarchy: one unmistakable current word, two quieter words.
+  const currentIndex=Math.min(level,p.words.length-1);
+  $('focusPuzzle').textContent=puzzleTag(puzzleIndex);
+  $('focusCaption').textContent=`WORD ${currentIndex+1} OF ${p.words.length}`;
+  $('focusCurrent').textContent=p.words[currentIndex];
+  const doneWords=p.words.slice(0,currentIndex).map((word,i)=>
+    `<div class="focusNext done"><small>✓</small>${word}</div>`).join('');
+  const nextWords=p.words.slice(currentIndex+1).map((word,i)=>
+    `<div class="focusNext"><small>${String(currentIndex+i+2).padStart(2,'0')}</small>${word}</div>`).join('');
+  $('focusQueue').innerHTML=(doneWords?`<span class="focusThen">DONE</span>${doneWords}`:'')+
+    (nextWords?`<span class="focusThen">THEN</span>${nextWords}`:'');
+  $('focusExcellent').textContent='≤'+p.excellent;
+  $('focusGood').textContent='≤'+p.good;
+  $('focusAverage').textContent='≤'+p.average;
+  $('focusMoves').textContent=String(moves);$('focusMovesMobile').textContent=String(moves);
+  $('focusPB').textContent=getPB()??'—';
 }
 // The choice is saved only if the player selects "Don't show this again".
 // A session that has already shown the instructions uses the short ready screen
 // for restarts; a fresh visit uses the persistent preference.
 const INTRO_KEY='wirlox-intro-dismissed-v1';
+// Date is the visitor's current local calendar date; the seven puzzles remain
+// a non-daily archive and are NOT automatically rotated by date.
+function setSplashDate(){
+ const today=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+ $('introDate').textContent=today;$('quickDate').textContent=today;
+}
+setSplashDate();
+function showArchive(){
+ $('introView').hidden=true;$('quickView').hidden=true;$('archiveView').hidden=false;
+ $('archiveList').innerHTML=PUZZLES.map((p,i)=>`<button type="button" class="${i===puzzleIndex?'currentArchive':''}" data-puzzle="${i}"><span>${puzzleLabel(i)}</span><span>${p.words.join(' · ')}</span></button>`).join('');
+ $('startRun').hidden=true;$('readyOverlay').setAttribute('aria-labelledby','archiveHeading');
+}
+$('openArchive').addEventListener('click',showArchive);
+$('archiveBack').addEventListener('click',()=>{showQuickReady();});
+$('archiveList').addEventListener('click',e=>{
+ const button=e.target.closest('[data-puzzle]');if(!button)return;
+ puzzleIndex=Number(button.dataset.puzzle);$('puzzle').value=String(puzzleIndex);introSeenThisPage=true;reset();
+});
 let introSeenThisPage=false;
 function introDismissed(){try{return localStorage.getItem(INTRO_KEY)==='1';}catch(e){return false;}}
 function showIntro(){
- $('introView').hidden=false;$('quickView').hidden=true;
+ $('introView').hidden=false;$('quickView').hidden=true;$('archiveView').hidden=true;$('startRun').hidden=false;
  $('readyOverlay').setAttribute('aria-labelledby','readyTitle');
  $('rememberIntro').checked=introDismissed();
  $('startRun').textContent="LET'S PLAY";
 }
 function showQuickReady(){
- $('introView').hidden=true;$('quickView').hidden=false;
+ $('introView').hidden=true;$('quickView').hidden=false;$('archiveView').hidden=true;$('startRun').hidden=false;
  $('readyOverlay').setAttribute('aria-labelledby','quickTitle');
  $('startRun').textContent='PLAY';
 }
@@ -433,6 +613,7 @@ function reset(){
  const p=PUZZLES[puzzleIndex];wheel=[...p.start].map(ch=>ABC.indexOf(ch));
  gameRunning=false;elapsedMs=0;activeSince=0;lastShownSeconds=-1;lastRunScore=null;
  $('readyMode').textContent=`${puzzleLabel(puzzleIndex)} of ${PUZZLES.length}`;
+ setSplashDate();
  showReadyScreen();
  $('readyOverlay').hidden=false;
  cursor=0;verticalRaw=wheel[0];horizontalPhase=targetHorizontalPhase=0;
@@ -584,13 +765,14 @@ $('puzzle').addEventListener('change',e=>{puzzleIndex=Number(e.target.value);res
  // Factory 4.8: Move the EXISTING UI into an optional phone menu.
  // No duplicate buttons, IDs or stats; existing listeners and scoring remain intact.
  const mobileMenuQuery=window.matchMedia('(max-width:700px)');
+ const focusMenu=$('focusMenu');
  const mobileMenu=$('mobileOverlay'),mobileMenuBtn=$('mobileMenuButton');
  const mobileMenuSlot=$('mobileMenuSlot');
  const gameHead=document.querySelector('.head'),gameTools=document.querySelector('.tools');
  const gameControls=document.querySelector('.controls');
  function closeMobileMenu(){
    mobileMenu.hidden=true;
-   mobileMenuBtn.setAttribute('aria-expanded','false');
+   mobileMenuBtn.setAttribute('aria-expanded','false');focusMenu.setAttribute('aria-expanded','false');
  }
 
  // The floating buttons track the rendered wheel's actual geometry, including
@@ -629,21 +811,18 @@ $('puzzle').addEventListener('change',e=>{puzzleIndex=Number(e.target.value);res
  if(window.visualViewport)window.visualViewport.addEventListener('resize',positionMobileArrows);
  function setMobileLayout(){
    closeMobileMenu();
-   if(mobileMenuQuery.matches){
-     mobileMenuSlot.append(gameHead,gameTools);
-     document.body.insertBefore(gameControls,$('toast'));
-     positionMobileArrows();
-   }else{
-     document.body.insertBefore(gameHead,$('stagebar'));
-     document.body.insertBefore(gameControls,$('toast'));
-     document.body.insertBefore(gameTools,gameControls);
-     clearMobileArrowPositions();
-   }
+   mobileMenuSlot.append(gameHead,gameTools);
+   document.body.insertBefore(gameControls,$('toast'));
+   if(mobileMenuQuery.matches)positionMobileArrows();
+   else clearMobileArrowPositions();
  }
- mobileMenuBtn.addEventListener('click',()=>{
+ function openGameMenu(){
    mobileMenu.hidden=false;
    mobileMenuBtn.setAttribute('aria-expanded','true');
- });
+   focusMenu.setAttribute('aria-expanded','true');
+ }
+ mobileMenuBtn.addEventListener('click',openGameMenu);
+ focusMenu.addEventListener('click',openGameMenu);
  $('mobileMenuClose').addEventListener('click',closeMobileMenu);
  mobileMenu.addEventListener('click',event=>{if(event.target===mobileMenu)closeMobileMenu();});
  window.addEventListener('keydown',event=>{if(event.key==='Escape'&&!mobileMenu.hidden)closeMobileMenu();});
