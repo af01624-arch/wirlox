@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>WIRLOX · Puzzle Bank 01 · Factory 4.2</title>
+<title>WIRLOX · Puzzle Bank 01 · Factory 4.8</title>
 <style>
   :root{color-scheme:dark;--blue:#8bd4ff;--warm:#ffe69a;--muted:#99a8c4;--panel:rgba(8,15,34,.72)}
   *{box-sizing:border-box}
@@ -121,13 +121,120 @@
   .tools select{max-width:270px}
   @media(max-width:700px){.stagebar{top:141px;max-width:95vw}.wordpill{min-width:62px;font-size:10px;padding:6px 7px}.tools select{max-width:153px}.version{display:block;font-size:9px;margin-top:2px}}
   @media(max-width:370px){.wordpill{min-width:57px;font-size:9px}}
+  .touchHint, #testWheelClick, #clickTestStatus{display:none}
+  @media(pointer:coarse){.touchHint{display:block} #testWheelClick{display:inline-block} #clickTestStatus{display:inline}}
+
+
+  /* Factory 4.8: phone interface stays off the wheel. The original desktop UI is unchanged. */
+  #mobileMenuButton, #mobileOverlay {display:none}
+  #mobileOverlay[hidden] {display:none!important}
+  @media(max-width:700px){
+    .stagebar{
+      position:fixed;z-index:9;
+      top:calc(env(safe-area-inset-top, 0px) + 10px);
+      left:10px;width:calc(100% - 104px);max-width:none;
+      transform:none;display:flex;flex-wrap:nowrap;gap:4px;
+      justify-content:stretch;pointer-events:none;
+    }
+    .stagebar .wordpill{
+      flex:1 1 0;min-width:0;white-space:nowrap;
+      padding:9px 1px;font-size:clamp(9px, 2.7vw, 11px);letter-spacing:.02em;
+    }
+    #mobileMenuButton{
+      display:block;position:fixed;z-index:10;
+      top:calc(env(safe-area-inset-top, 0px) + 10px);right:10px;
+      min-width:77px;min-height:36px;padding:6px 10px;
+      background:rgba(19,34,62,.95);border-color:rgba(165,198,240,.42);
+      font-size:12px;font-weight:bold;
+    }
+    #mobileOverlay{
+      position:fixed;inset:0;z-index:15;
+      display:flex;align-items:flex-end;justify-content:center;
+      background:rgba(3,9,22,.42);padding:0;
+    }
+    .mobileMenuCard{
+      width:100%;max-height:min(460px, 76dvh);
+      padding:12px 13px calc(env(safe-area-inset-bottom, 0px) + 12px);
+      overflow-y:auto;overscroll-behavior:contain;
+      border:1px solid rgba(164,203,250,.35);border-bottom:0;
+      border-radius:18px 18px 0 0;
+      background:linear-gradient(150deg,rgba(24,36,66,.985),rgba(9,17,33,.985));
+      box-shadow:0 -15px 60px #0009;
+    }
+    .mobileMenuHeader{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 8px}
+    .mobileMenuHeader strong{font-size:14px;letter-spacing:.05em}
+    #mobileMenuClose{font-size:12px;padding:7px 14px;min-height:34px}
+    #mobileMenuSlot{display:flex;flex-direction:column;gap:9px}
+    #mobileMenuSlot .head{
+      position:static;inset:auto;display:flex;flex-direction:row;
+      align-items:stretch;justify-content:stretch;gap:6px;
+      transform:none;pointer-events:auto;
+    }
+    #mobileMenuSlot .head .panel{flex:1;min-width:0;padding:7px 9px}
+    #mobileMenuSlot .head h1{font-size:12px;margin-bottom:3px}
+    #mobileMenuSlot .head .version{display:inline;font-size:9px}
+    #mobileMenuSlot .head .sub{display:none}
+    #mobileMenuSlot .head .dayMood{font-size:9px;line-height:1.2;margin:3px 0}
+    #mobileMenuSlot .head .statLine{font-size:10px;line-height:1.45;margin-top:3px}
+    #mobileMenuSlot .head .targetBox{min-width:105px;flex:0 1 38%}
+    #mobileMenuSlot #target{font-size:22px}
+    #mobileMenuSlot #timer{font-size:11px}
+    #mobileMenuSlot .tools{
+      display:grid;position:static;inset:auto;transform:none;
+      grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;
+      width:100%;align-items:stretch;justify-content:stretch;
+    }
+    #mobileMenuSlot .tools select{
+      grid-column:1 / -1;width:100%;max-width:none;
+      font-size:12px;padding:8px 9px;min-height:35px;
+    }
+    #mobileMenuSlot .tools button{font-size:12px;min-height:36px;padding:7px 4px}
+    #mobileMenuSlot #rearToggle{font-size:11px;padding:6px 4px}
+    #mobileMenuSlot .controls{
+      display:grid;position:static;inset:auto;transform:none;
+      align-self:center;grid-template-columns:repeat(3,60px);
+      grid-template-rows:repeat(2,44px);gap:4px;
+    }
+    #mobileMenuSlot .controls button{font-size:21px;padding:4px}
+    .help{display:none}
+    #toast{top:calc(50% + 105px)}
+  }
+
+  /* Factory 4.8: floating arrows are adjacent to (not on) the two wheels.
+     A transparent full-viewport wrapper lets finger swipes pass through everywhere
+     except the four actual buttons. */
+  @media(max-width:700px){
+    .controls, #mobileMenuSlot .controls {
+      display:block;position:fixed;inset:0;left:0;top:0;
+      width:100%;height:100%;z-index:7;
+      transform:none;pointer-events:none;overflow:visible;
+      grid-template-columns:none;grid-template-rows:none;
+    }
+    .controls button, #mobileMenuSlot .controls button {
+      position:absolute;display:flex;align-items:center;justify-content:center;
+      box-sizing:border-box;width:88px;height:88px;min-width:88px;min-height:88px;
+      padding:0;border-radius:24px;
+      border:1px solid rgba(158,205,255,.48);
+      background:rgba(16,31,60,.88);backdrop-filter:blur(5px);
+      -webkit-backdrop-filter:blur(5px);
+      color:#c8e7ff;font-size:45px;font-weight:700;
+      text-shadow:0 0 8px #39709a;box-shadow:0 2px 15px #0004;
+      transform:translate(-50%,-50%);pointer-events:auto;touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
+      grid-column:auto;grid-row:auto;
+    }
+    .controls button:active {background:rgba(60,93,149,.98);}
+    .controls .up,.controls .left,.controls .right,.controls .down {
+      grid-column:auto;grid-row:auto;
+    }
+  }
 </style>
 </head>
 <body>
 <canvas id="wheel"></canvas>
 <div class="head">
  <div class="panel">
-  <h1>WIRLOX <span class="version">· FACTORY 4.2 · BANK 01</span></h1>
+  <h1>WIRLOX <span class="version">· FACTORY 4.8 · BANK 01</span></h1>
   <div class="sub">← → position · ↑ ↓ change letter · opposite pair moves with it</div>
   <div class="dayMood" id="dayMood">PUZZLE 01 / 07 · WARM-UP · 14 LETTERS</div>
   <div class="statLine">Time: <strong id="timer">0:00</strong> <span class="sep">|</span> Moves: <strong id="moves">0</strong> <span class="sep">|</span> PB: <strong id="pb">—</strong> <span class="sep">|</span> Word: <strong id="wordCount">1 / 3</strong><span id="minimumHeader" hidden> <span class="sep">|</span> Perfect: <strong id="minimumHeaderScore">—</strong></span></div>
@@ -137,6 +244,13 @@
  </div>
 </div>
 <div class="stagebar" id="stagebar"></div>
+<button id="mobileMenuButton" type="button" aria-controls="mobileOverlay" aria-expanded="false">☰ Menu</button>
+<div id="mobileOverlay" role="dialog" aria-modal="true" aria-label="WIRLOX settings and statistics" hidden>
+  <div class="mobileMenuCard">
+    <div class="mobileMenuHeader"><strong>WIRLOX · MENU</strong><button id="mobileMenuClose" type="button">Close ✕</button></div>
+    <div id="mobileMenuSlot"></div>
+  </div>
+</div>
 <div class="help"><span class="legendHorizontal">●</span> Horizontal alphabet &nbsp; <span class="legendVertical">●</span> Vertical alphabet<br>14 letters · three familiar words.<br>← → position &nbsp; ↑ ↓ alter linked letters.<br>Every arrow press costs one move. Stopwatch is secondary.</div>
 <div class="tools">
  <select id="puzzle" aria-label="Choose puzzle from bank"></select>
@@ -144,7 +258,7 @@
  <button id="reset" type="button">↻ Restart</button>
  <button id="next" type="button">Next puzzle →</button>
 </div>
-<div class="controls" aria-label="Touch arrow controls">
+<div class="controls" aria-label="Wheel arrow controls">
  <button class="up" type="button" data-dir="up" aria-label="Previous letter">↑</button>
  <button class="left" type="button" data-dir="left" aria-label="Rotate left">←</button>
  <button class="down" type="button" data-dir="down" aria-label="Next letter">↓</button>
@@ -185,7 +299,9 @@
     <div class="readyWords" id="readyWords">HOUSE · SMILE · PLANT</div>
     <p>All three targets are visible. Find them in order; the wheels retain every change. Moves determine your result, while the stopwatch is a secondary stat.</p>
     <p><b>No time limit.</b> Try both rear-letter display modes — switching costs no moves.</p>
+  <p class="touchHint">Touch controls: swipe on a blue letter to turn the ring, or on the orange alphabet to change a letter. One slow, deliberate step per swipe — lift your finger between steps.</p>
     <button id="startRun" type="button">Start</button>
+  <button id="testWheelClick" type="button">Test click sound</button> <span id="clickTestStatus" class="sub" aria-live="polite"></span>
   </div>
 </div>
 <script>
@@ -330,21 +446,228 @@ function vertical(delta){
  const opposite=(cursor+n()/2)%n();wheel[opposite]=mod(wheel[opposite]+delta,26);
  moves++;breakdown[level]++;updateUI();check();
 }
-function move(dir){if(dir==='left')horizontal(-1);if(dir==='right')horizontal(1);
- if(dir==='up')vertical(-1);if(dir==='down')vertical(1);}
+// Factory 4.8: strict direct-wheel interaction.
+// One deliberately paced finger gesture can make AT MOST one move.
+// Blue-wheel and orange-wheel touch zones are exclusive at pointerdown.
+// The click sample is embedded as mono 16-bit PCM (44.1 kHz). Safari can
+// create the AudioBuffer synchronously, without a fetch or WAV decoder race.
+const CLICK_SAMPLE_B64='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9f4f/2//bv+G/4P/mv91/27/eP9L/1L/O/8c//n+yP6x/sv+sv6//rH+3P7V/gX/Fv9O/3b/kP/H/9T/FQA9AGAAeACMAKgAlwCwALMAwQDIAN4A0gD5AAMBCAH+AOoAHAEdASgBMAEiARsB8QDsANgA3ADoAOQA/QAXAQMB/gAWAQwBPwEjATQBEAEMASsB6wAMAb8AvQCsAMMA1ADuADQBiQGbAc4BzAHAAcoBtwHPAY4BdAFlAU8BHQEnAUQBUQE1AUgBaQFoAY4BfwGyAdABFwJHAlYCYQJnAnwCoQK2ArACtgK/AsMC4wL/Av0C6ALhAusC9QLkAtgC8gLaAscCsgKGAmICTwJDAicCCgIUAgECEgIRAiQCOwIsAjUCJAITAusBwAHMAa0BywGaAcsBuQHcAdcB4AHxAfgBFgISAjcCYAKlAtQCFQNHA6ADmwPSA8oDEwQbBCYEKQQ4BEQELwRIBGMESQQ/BC8EGQT6A7gDqANbAyED5AKkApECUQI4AvAB3AHpAbkBsgGQAZcBmwGfAaUBlgGaAa8BtgHaAcsB3gH0AeIBBAIQAhoCGAInAj4CSwJYAocCfALIAuECFAM2A04DcAODA50DkwOQA4oDbwNuA24DiAOKA5kDjQOnA58DjgOWA3gDdwM4AxMD4gKuAn8CWgI0AgoC8QG9AaMBhAFvAVkBWwFFASABBAH5AAwB+QAZARgBPwEnAUIBYwFwAY8BrQHeAQUCLgJgAmwCmwK/AtMC9QIRAysDTgNiA4QDeQN+A4cDgQOEA3gDfgOEA4IDgANkA0wDOAMXA+oCuwJyAk8CIQLWAccBjgGAAXUBYwFUAQoBDgHnANgA0QC1AMIA2gDtAP4A9ADxAPMADwESASABJAE6AVQBZQFsAYgBpQHNAcsB3wHzARoCOgJZAn0CjAKUAssC1QL6AuwC7wIEA/MC9QLaAugCzwLUAqECmAJRAiQC6AGsAZcBXAE3AS0BEwEVAeAAwACfAIIAjgCNAKsAxgD5ABYBMgFUAWgBdwGJAacBiAGbAYEBpQGLAYsBgAGYAawBswG2Ab4B0gHaAe0B/wELAggCBgLuAc0BygGWAZsBaQFlAUIBUwFbAWcBWwFnAV8BewFvAWMBQgFBATgBDwH8AOsA7gD9AAYBBQHmAPMA2QDmAMUA0gDOAM4AvgC9AMQAygDMAKsAugC5AMQAxQC1AL4AxwDOANQA9wD4ACMBKQFiAVEBhwFxAZsBjQGUAY8BoAGPAXwBYgF+AVkBYQFVAXcBYgFqAWIBYAFXAVwBOwExAQ4B7wDjAKoAqgCFAHUAXwBMAFUAUAA2AC4AFAAvAAkACQD4/wsA+f8FANP/8P/J/+H/2v/f/+n/8v8IAAgAFQAjAD0AXgB7AJkAowDEANUABQEOARgBEwEQAQYBDwHnAOsAvQCsAKoAlQCjAHYAdQBsAEMAVwAkADEADAAAAPn/4//o/9P/5//o//X/BQD8/yYAGgBXAD8AWwBmAFQAcgBWAG4AVABHAEwARwBXAEsARQBYAF0AYwByAIcAjQCFAJcAhwCOAIUAjgB5AI0AXwBtAEgAXgAvABQACQDq//v/yf/b/7f/w/+u/7P/oP+a/6D/qv+h/4//jv9//3n/Wf9o/07/df9j/4D/fv+n/6f/vP/G/9b/5P/4/wwABgAXABAAHwASAB4ABgAPAAYAIgAVAAcABwAAAA4ACAAEAAIA9v/8//L/4//P/8z/zf/L/8P/xv+z/77/n/+s/4r/qv+R/5L/l/99/7X/gv+4/4f/mv+S/5n/pv+U/6f/lv+m/53/nv+f/6D/qv+T/4j/mv96/6L/gP+a/4//iv+V/4f/jf9+/3v/ff9//3v/hf+G/6X/m/+//6r/vf+w/6//rf+i/5n/jf+I/3b/cv9u/27/WP9Y/1f/X/9s/1//Wv9O/0L/Uf9E/0j/Q/9K/1H/Tf9i/2r/bv9w/3H/e/98/4z/k/+g/5D/of+m/7T/t/+8/8v/0v/R//L/7f/1/+T/3v/k/9D/xv+n/4v/f/9v/2T/XP9O/03/Of87/y//Mf82/yD/Lf8f/zP/J/8j/yj/Kv9D/0H/Sf9T/1X/bv9z/33/kP+d/5z/qv+l/7X/sf+u/6z/p/+q/6L/h/+L/2n/d/95/3P/jP98/5T/jP+k/7P/s//a/9X/4P/b/9D/3//O/8T/uv+k/7D/mf+N/5D/f/+R/4b/jf+Y/6D/ov+o/5L/lv+D/3n/cv9b/13/Qv9E/y7/OP8z/z//Qv9E/1f/Wv9t/3P/dP9//3b/dP9k/17/Wv9b/2L/cf9q/3r/df+Q/43/q/+e/8f/rP/N/8H/4f/S/8//yP+5/7X/nP+M/3z/ff+C/3j/df93/3L/e/+C/4P/jf+I/4j/iP93/3n/ZP9i/1H/Wf9R/07/VP9M/1X/X/9t/3b/e/9//5P/h/+L/3n/dP9y/27/cv9w/2z/d/9m/4b/bv+K/4P/iv+X/4//mv+X/6T/t/+0/8X/xP/M/9r/0v/X/8v/zf/O/73/uP+v/6X/n/+O/5D/iP9//4r/e/+X/3v/iv9z/2z/af9Q/1n/PP89/zf/MP8y/zH/Lf8//zj/R/9P/0r/aP9S/2T/Zv9i/3v/Zv+B/3T/eP+J/3r/kf+K/5f/qv+k/8b/rf/I/8D/zf/U/8v/0P/K/8L/yv+t/7n/ov+m/6H/l/+n/47/o/+K/5//of+e/6//nf+t/6P/pf+q/4z/l/90/3b/Yv9U/1T/RP9B/zz/N/9E/zn/T/9L/1T/Xf9Q/2z/Vf95/1//gv9n/4X/ev+T/5b/rv+5/7//0//M/+H/3v/s/+7/5//s/9z/7f/b/+7/2f/k/9r/2v/W/9r/zv/Z/8n/1P/M/8v/y//A/7P/sP+Z/6f/g/+a/3v/jf94/37/b/9z/2f/cv9q/3P/ev+A/4z/gv+L/4b/gf+B/3L/e/9s/3j/b/9//4H/lf+W/6v/tP+//9T/1f/p/+f/8f/3//b/+//5//j/AAD9/wkAAgAaABIAIQAhABkAIwAJAA8A/f/s/+7/y//T/7v/sv+x/5f/nf+R/4P/jf91/3z/c/9p/3f/Zv9x/3L/cv95/3j/d/+A/33/hv+N/4n/nv+a/6z/sf+8/8z/z//j/+j/8/8BAAAAEQAMABUAEAAUABIAFQARABkAEQAhABMAIwAXAB8AIAAbACIAFgAUABMABwAIAPT/+P/i/+T/0//J/8f/tf++/6r/qv+j/5P/m/+D/4v/fv95/3j/dP91/3n/c/+D/3//jf+Q/5//qP+z/7v/xf/O/9n/3v/k/+n/5v/5/+j/AwDz/wQACQAJAB0AGwAoADYAMgBNAEgAUABZAE4AWQBEAEgANQAwAB4AFQAHAPj/8P/b/9X/x/+8/7z/rv+z/6r/rf+i/6//lv+s/5L/n/+Z/47/nv+K/5j/lv+N/6b/j/+t/6P/r//B/7X/2//K/+r/6v/1/wQAAAATAA0AGgAaAB0AJgAiADEAKwA3AD0APABLAEgASwBQAEIASwA4ADcAKgAgABgACwAFAPr/+v/r//X/5v/y/+b/7P/g/+L/0v/O/8L/sP+v/5T/mf+C/4X/ff97/4H/f/+O/5L/oP+t/7b/yP/N/+P/4P/7//f/CwANABYAIAAkADAANgA8AEgASABWAFYAVwBhAE8AYgBIAFQARgA9AEEAJgAwABcAGQARAAIADAD2/wQA8v/+//X/9v/y/+7/6P/g/9z/yv/P/7P/vf+j/6j/nf+T/57/j/+j/5//rP+8/8H/1v/f/+z/+//8/w8ABQAYAAsAFgAXABIAJAAWADIAKABAAEIAUwBcAGQAcQBsAHoAbQBzAGYAWwBUAD4AOgAlABoAEgD/////5//s/9T/2v/D/8f/uf+2/7P/qf+q/6H/pP+e/6b/pf+u/7v/uP/V/8v/6P/o//b/BQACAB8AEwAwACoAOAA/ADgASwA4AEkAQQA9AEwANgBOAEAARQBQAD4AVABBAEgARAA4ADgAKAAiABMABwD5//H/3//i/83/2f/J/9T/y//U/9D/2v/W/9//3//h/+b/4//n/+f/5v/s/+v/8P/4//j/CgAHABwAHQAoADIALwA7ADUAOAA6AC4APgAmAD0AJwA6ACwAOAAvADYALwAxAC8AKAAqACEAHQAeABAAGAAHAAwAAAD///r/8//z/+7/7//u/+3/7v/y/+v/9f/p//P/7P/u//L/7P/0/+7/9v/0//f/+v/8/wAABQAHABEAFAAbACMAJgArADIAMAA9ADgAQABAAEIAQQBCADsAPwA2ADQANQApADAAIgAkABwAGAAQABMABAARAAEADQAHAAcACwADAAcAAAD7//r/8//s//D/3//v/9//6//o/+n/8f/z//b/AQD8/wsABQARABEAFgAbAB4AIwAkACkALAAvADMANQA8AD0ARQBEAE8ASABTAEkASwBFAD0AOwAtAC4AIAAiABUAFwANAAwACQAFAAMAAAD7//7/9P/2//H/7P/t/+P/6f/e/+b/3f/r/9//8//o//3/9/8IAAUAFQARAB8AHQAhACgAIQAuACoALgA4ACoAQAAsADsAMwAyADkALwA7ADEAOwA2ADoAOAA3ADkAMwA2AC0AMAApACgAIQAeABUAEwAMAAYACAD+/wMA+//9//v/+P/4//f/9P/z//T/6v/4/+H//f/d//v/4//1//H/7/////P/BwAAAAsAEAARAB4AGQAtACUAOgAzAEMAQABIAEoASwBRAE8AVABPAFYATgBUAEoATgBCAEMANQAyACcAHQAYAAgAAwD6//H/8f/k/+n/4//l/+b/5P/q/+j/6v/r/+f/7v/m/+7/6v/v//T/8///////CQALABUAFgAkAB4AMQAnADkAMgA8ADsAPgA+ADsAPgA4ADoANQAzADcALAA3ACkAMAAnACQAJQAZAB8ADwAYAA0AEQANAAoADwAGAAwABwAFAAkAAQAJAAAABgAAAAAAAAD4//v/8//0//X/8P/4//L/+v/9//n/BwD9/wwABgAMABUADgAfABcAJQAhAC4AKQA3ADAAOwA4ADkAOAA3ADEAMgAsACkAKgAiACYAIAAdACEAFAAfABEAGQAOABMADQALAAoABAAGAAAAAQD+/////f///////v8AAP///f8BAPX/AgDz////+f/7/wEAAAAJAA4AEgAZAB4AHwAoACIAKgAiACYAHwAiABgAIgAVAB8AFwAbAB0AGgAfAB8AHQAkABgAIgASABgADQAJAAcA//8FAPv/AQD9////BAD+/wkAAAAMAAgACAAQAAUAEwAFABMACAATAAwAFgARABgAGgAXACUAFwAqABoAJgAfACEAHQAeABYAGQARAA4ADgAGAAkABQADAAgAAgAIAAcABAAIAAAAAwD+//z//f/3//r/+P/4//j/9//5//z//P8EAAMADQAPABYAGgAfACMAKAApACwALAArACsAJQAnACAAIQAhABkAKAAWACwAGQAoAB8AHgAgABUAFwAMAAsAAgAAAPf/9v/u/+z/6//k/+3/5f/x/+3/9P/1//j/+f/4//v/9v/8//f//f//////BgADAA0ACwAVABcAHgAhACgAKAAwACkAMAAmACwAIQAiABkAGAASABMADQAQABAAEgAWABkAGwAhAB4AJgAhAB8AIAAUABcACAAGAAAA9P/5/+n/7//l/+j/6v/m/+//6f/x/+3/8f/v/+7/7f/u/+z/8f/u//f/9f/+//7/BAAGAAwAEAAUABcAHQAdACUAIQApACQAJwAiACMAHwAgABsAIAAbACIAIAAlACcAJwAsACcALAAlACYAIAAZABgACwALAP3//f/w/+//5f/j/+D/2//j/9T/6f/T/+3/1v/p/9v/4v/f/93/4v/e/+X/5P/q/+//8//5/wEAAgARABAAGwAjACQANAAuAD8AOABEAD8ARQA/AEEAPAA5ADQAMgAoACoAHwAgABoAEwAXAAcADwAAAAIA+//z//D/5//h/97/0//W/83/0P/O/9D/1f/Y/9//5f/p//L/8f/7//j//f/9//z////9//3/AAD8/wYAAgAMAA4AFAAaAB8AIwAoACoAKAAvACUALAAhACUAHQAbABkAFAAXAA8AFgANABMADAAPAAsADQAJAA0ABQAMAAEABAD9//r/9f/u/+3/5v/m/+X/4//p/+T/7f/r//D/9P/x//f/8//2//T/8v/x//D/7v/v/+//7//3//H/AAD8/wgADAARABoAGQAgAB4AHwAeABsAHQAXABkAFQAZABgAGgAcACAAHgAkAB4AIgAcAB0AGAASABIAAwAIAPX/+f/r/+n/4v/g/9r/3v/V/97/1v/e/9z/3v/g/+L/4v/q/+b/8P/t//L/9f/0//v/+v8AAAQACAAPABMAGgAfACEAKgAmAC8AJwAsACYAJgAhAB8AGAAbAA4AFwAJABEACAALAAkABQAGAAAA///6//T/8f/o/+b/3v/f/9f/2v/X/9v/2//g/+H/6v/o//L/8P/4//n/+v8AAPz/BwAAAAwACAANAA8ADgAUABMAFAAZABYAGQAbABcAHAAZABcAHQAQABkADgANAAwAAgAGAP3//f/6//b/9P/0/+3/8//r//D/7f/t/+//7P/t/+7/6f/x/+j/8P/s/+v/9P/r//n/8//7//////8IAAgADQASAA8AFwARABcAEgAUABAAEQANAA4ADQAMAA4ACgANAAkACAAIAAEABQD8/wEA9v/+//P/+P/z//L/8v/u//D/7//w//H/8v/y//b/9f/4//n/9//9//f//v/6//r/AAD3/wEA9/8AAPr//P/9//r////9/wEAAgAFAAkACAAPAAoAEQANAA8ADwAMAA4ACQAKAAcABQAFAAMABAADAAIAAwABAAEAAAD+//v//f/2//r/8//0//T/7//0/+3/8P/w/+7/9P/v//b/9v/3//z/+P8AAPr////9//3//v/7//z//v/7/wEA/P8EAAIABQAKAAcADgALAAwADQAKAAsACQAFAAcAAQADAAEAAAADAP3/AwAAAAIAAwACAAQABQABAAUA//8AAP7/9//7//D/8//v/+r/8P/n/+//6v/v/+//8v/z//b/9v/4//r/+P/8//r//v/8//3//v/9/wAA/v8CAAIAAwAJAAUADwAHABAACwANAA0ACgAMAAgACgAHAAkABgAJAAUACAAFAAQABQABAAIAAAD+//7/+f/6//X/9f/x//H/7f/u/+v/6//q/+n/6v/q/+r/7f/u//H/8//1//j/+P/8//n/AAD6/wIA/f8DAAQABAAKAAgADgAOABAAEwATABUAFQAVABUAEwARABAADAALAAUABQD//wEA+f/+//X/+v/z//f/8//1//P/8//x//L/7//w/+3/7P/s/+n/7v/p//D/7f/y//L/9v/3//v/+v8AAP3/AQAAAAIABAAEAAcABwAIAAsACQAOAAwAEAAOABEADwARAA8ADwANAAsACAAGAAIAAQD9//z/+//1//n/8f/2//D/8//y//D/8//x//P/9P/z//f/9P/6//X/+//2//r/9//6//n/+//6//3//P////7/AAAAAAEAAQABAAMAAQAFAAAABgACAAUABQAEAAcABQAHAAgABgAKAAUACgAEAAcABAAEAAMAAQABAP/////+//r//f/4//r/+P/3//n/9v/4//b/9f/3//P/9f/0//L/9//x//f/8//2//b/9//4//r/+v////7/AgABAAQABQAFAAkABwAKAAkACgALAAkADAAHAAsABQAIAAQABQADAAMAAgACAAEAAQD//wAA/f/9//v/+//5//n/9//4//b/9v/2//X/9v/2//b/+P/2//n/9//6//j/+//5//v/+//6//7//P////7/AAAAAAMAAwAFAAUABwAHAAcACAAGAAcABgAFAAUAAwAEAAIAAgABAAAAAQAAAAAAAAD//wAA/v////7//f/9//v//P/5//v/9//6//j/+v/4//r/+v/6//v/+//8//z//f/+//7/////////AAD//wAAAAAAAAEAAAACAAAAAgABAAIAAQABAAEAAAABAAAAAQAAAAAAAAAAAAEAAQACAAIAAwACAAMAAgACAAIAAAACAP//AAD///7//v/9//3//P/8//z/+//8//z/+//7//v/+//7//v/+//8//v//f/8//7//f////7/AAD//wAAAAAAAAEAAQACAAIAAwAEAAMABQAEAAQABQADAAUAAgADAAIAAQACAAAAAAAAAAAA///+//7//f/9//3//P/8//z//P/9//z//f/8//3//f/9//7//v/+/////v////7//////wAAAAAAAAAAAAAAAAAAAgAAAAIAAQACAAIAAgACAAIAAgACAAIAAgABAAEAAQAAAAAAAAAAAP/////+/////f////3////+//7//v/+//7//v/+/////v//////////////AAD//wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAABAAEAAQABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//wAA/////////////////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+let clickContext=null,clickBuffer=null,clickAudioError='';
+function unlockClick(){
+ const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+ if(!AudioContextClass){clickAudioError='AudioContext unavailable';return null;}
+ try{
+  if(!clickContext)clickContext=new AudioContextClass();
+  if(!clickBuffer){
+   const bytes=atob(CLICK_SAMPLE_B64),length=bytes.length/2;
+   const buffer=clickContext.createBuffer(1,length,44100),dst=buffer.getChannelData(0);
+   for(let i=0;i<length;i++){
+    const raw=bytes.charCodeAt(i*2)|(bytes.charCodeAt(i*2+1)<<8);
+    dst[i]=(raw>=32768?raw-65536:raw)/32768;
+   }
+   clickBuffer=buffer;
+  }
+  if(clickContext.state==='suspended')clickContext.resume().catch(e=>{clickAudioError=String(e);});
+  return clickContext;
+ }catch(e){clickAudioError=String(e);return null;}
+}
+function playWheelClick(statusElement){
+ const context=unlockClick();
+ if(!context||!clickBuffer){if(statusElement)statusElement.textContent='Audio unavailable';return;}
+ const sound=()=>{
+  if(context.state!=='running'){
+   if(statusElement)statusElement.textContent='Audio blocked — check Silent Mode and volume';
+   return;
+  }
+  try{
+   const source=context.createBufferSource(),gain=context.createGain();
+   source.buffer=clickBuffer;gain.gain.value=.78;
+   source.connect(gain);gain.connect(context.destination);source.start();
+   if(statusElement)statusElement.textContent='Click played';
+  }catch(e){clickAudioError=String(e);if(statusElement)statusElement.textContent='Audio error';}
+ };
+ if(context.state==='running')sound();
+ else context.resume().then(sound).catch(()=>{
+  if(statusElement)statusElement.textContent='Audio blocked — check Silent Mode and volume';
+ });
+}
+function move(dir){
+ if(!gameRunning||transition||finished)return;
+ switch(dir){
+  case 'left':horizontal(-1);break;
+  case 'right':horizontal(1);break;
+  case 'up':vertical(-1);break;
+  case 'down':vertical(1);break;
+  default:return;
+ }
+ playWheelClick();
+}
+// The spatial hit test uses the same projection as the visible blue letters.
+// A touch begins on ONE wheel, never on both; crossing into the other wheel
+// mid-swipe has no effect. Blue letters in the central orange column are
+// intentionally not draggable; use the blue left/right arcs instead.
+function touchWheelAt(x,y){
+ const wide=width/height>1.15;
+ const R=Math.min(wide?269:242,width*.37,height*(wide?.35:.30));
+ const V=Math.min(172,R*(wide?.71:.90),height*(wide?.26:.24));
+ const cx=width*.5,cy=height*(wide?.49:.51)+4;
+ const front=project(0,R*Math.sin(tilt),-R*Math.cos(tilt),cx,cy);
+ const crossingY=front.y;
+ // Orange vertical wheel: a narrow, central strip from first to third visible letter.
+ if(Math.abs(x-cx)<=Math.min(34,Math.max(25,R*.22)) &&
+    Math.abs(y-crossingY)<=V*.79+12)return 'vertical';
+ // Blue horizontal wheel: start directly on a letter or close to the ring arc.
+ // Exclude the orange overlap so horizontal gestures cannot accidentally
+ // alter the vertical alphabet.
+ if(Math.abs(x-cx)<Math.max(42,R*.30))return null;
+ let nearBlue=false;
+ for(let i=0;i<wheel.length;i++){
+  const angle=-Math.PI/2+i*hs()+horizontalPhase;
+  const z=R*Math.sin(angle), xx=R*Math.cos(angle);
+  const p=project(xx,-z*Math.sin(tilt),z*Math.cos(tilt),cx,cy);
+  if(Math.hypot(x-p.x,y-p.y)<=Math.max(31,38*R/230)){
+   nearBlue=true;break;
+  }
+ }
+ return nearBlue?'horizontal':null;
+}
+const TOUCH_HORIZONTAL_STEP=58, TOUCH_VERTICAL_STEP=50;
+const TOUCH_MIN_DURATION_MS=115, TOUCH_AXIS_RATIO=1.9;
+let touchDrag=null,touchIgnoreUntilRelease=false;
+function endTouch(event){
+ if(!touchDrag||(event&&touchDrag.id!==event.pointerId))return;
+ try{if(canvas.hasPointerCapture(touchDrag.id))canvas.releasePointerCapture(touchDrag.id);}catch(e){}
+ touchDrag=null;
+}
+canvas.addEventListener('pointerdown',event=>{
+ if(event.pointerType!=='touch'&&event.pointerType!=='pen')return;
+ if(touchDrag){
+  // Second finger cancels the first gesture. No multi-touch movement.
+  touchIgnoreUntilRelease=true;
+  endTouch();return;
+ }
+ if(touchIgnoreUntilRelease||!gameRunning||transition||finished)return;
+ const wheelAxis=touchWheelAt(event.clientX,event.clientY);
+ if(!wheelAxis)return;
+ unlockClick();
+ touchDrag={id:event.pointerId,x:event.clientX,y:event.clientY,
+   t:event.timeStamp,axis:wheelAxis,moved:false,cancelled:false};
+ try{canvas.setPointerCapture(event.pointerId);}catch(e){}
+ event.preventDefault();
+},{passive:false});
+canvas.addEventListener('pointermove',event=>{
+ const drag=touchDrag;
+ if(!drag||drag.id!==event.pointerId)return;
+ if(!gameRunning||transition||finished){endTouch(event);return;}
+ if(drag.moved||drag.cancelled)return;
+ const dx=event.clientX-drag.x,dy=event.clientY-drag.y;
+ const primary=drag.axis==='horizontal'?dx:dy;
+ const offAxis=drag.axis==='horizontal'?dy:dx;
+ // A diagonal / wrong-axis swipe is rejected rather than reassigned.
+ if(Math.abs(offAxis)>18&&Math.abs(offAxis)*TOUCH_AXIS_RATIO>Math.abs(primary)){
+  drag.cancelled=true;return;
+ }
+ const threshold=drag.axis==='horizontal'?TOUCH_HORIZONTAL_STEP:TOUCH_VERTICAL_STEP;
+ if(Math.abs(primary)<threshold)return;
+ if(Math.abs(primary)<Math.abs(offAxis)*TOUCH_AXIS_RATIO){drag.cancelled=true;return;}
+ // Fast flicks don't even get a free increment: deliberate travel only.
+ if(event.timeStamp-drag.t<TOUCH_MIN_DURATION_MS){drag.cancelled=true;return;}
+ const direction=drag.axis==='horizontal'?(primary>0?'left':'right'):(primary>0?'up':'down');
+ drag.moved=true; // only ONE step until the finger is lifted
+ move(direction);
+ event.preventDefault();
+},{passive:false});
+canvas.addEventListener('pointerup',event=>{endTouch(event);touchIgnoreUntilRelease=false;});
+canvas.addEventListener('pointercancel',event=>{endTouch(event);touchIgnoreUntilRelease=false;});
+window.addEventListener('blur',()=>{endTouch();touchIgnoreUntilRelease=false;});
 window.addEventListener('keydown',e=>{
  const dirs={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down'};
  if(dirs[e.key]){e.preventDefault();move(dirs[e.key]);}
 });
-for(const btn of document.querySelectorAll('[data-dir]'))btn.addEventListener('click',()=>move(btn.dataset.dir));
+for(const btn of document.querySelectorAll('[data-dir]')){btn.addEventListener('pointerdown',unlockClick);btn.addEventListener('click',()=>move(btn.dataset.dir));}
 $('reset').addEventListener('click',reset);$('playAgain').addEventListener('click',reset);
-$('startRun').addEventListener('click',()=>{if(gameRunning)return;gameRunning=true;activeSince=performance.now();$('readyOverlay').hidden=true;});
+$('testWheelClick').addEventListener('click',()=>playWheelClick($('clickTestStatus')));
+ $('startRun').addEventListener('click',()=>{unlockClick();if(gameRunning)return;gameRunning=true;activeSince=performance.now();$('readyOverlay').hidden=true;});
 $('nextDone').addEventListener('click',()=>{puzzleIndex=(puzzleIndex+1)%PUZZLES.length;$('puzzle').value=String(puzzleIndex);reset();});
 document.querySelectorAll('[data-feel]').forEach(btn=>btn.addEventListener('click',()=>{const o=readReview();o.feel=btn.dataset.feel;o.note=$('feedbackNote').value.trim();writeReview(o);updateFeedback();}));
 $('saveFeel').addEventListener('click',saveReview);
 $('copyFeedback').addEventListener('click',()=>{saveReview();copyAllNotes();});
 $('next').addEventListener('click',()=>{puzzleIndex=(puzzleIndex+1)%PUZZLES.length;$('puzzle').value=String(puzzleIndex);reset();});
 $('puzzle').addEventListener('change',e=>{puzzleIndex=Number(e.target.value);reset();});
+
+ // Factory 4.8: Move the EXISTING UI into an optional phone menu.
+ // No duplicate buttons, IDs or stats; existing listeners and scoring remain intact.
+ const mobileMenuQuery=window.matchMedia('(max-width:700px)');
+ const mobileMenu=$('mobileOverlay'),mobileMenuBtn=$('mobileMenuButton');
+ const mobileMenuSlot=$('mobileMenuSlot');
+ const gameHead=document.querySelector('.head'),gameTools=document.querySelector('.tools');
+ const gameControls=document.querySelector('.controls');
+ function closeMobileMenu(){
+   mobileMenu.hidden=true;
+   mobileMenuBtn.setAttribute('aria-expanded','false');
+ }
+
+ // The floating buttons track the rendered wheel's actual geometry, including
+ // iPhone Safari's changing visible viewport as its browser chrome collapses.
+ // No pointer, swipe, sound, scoring or movement logic is changed in this update.
+ const mobileArrowButtons=Object.fromEntries(
+   ['up','down','left','right'].map(dir=>[dir,gameControls.querySelector(`[data-dir="${dir}"]`)]));
+ function positionMobileArrows(){
+   if(!mobileMenuQuery.matches)return;
+   const w=innerWidth,h=innerHeight,wide=w/h>1.15;
+   const R=Math.min(wide?269:242,w*.37,h*(wide?.35:.30));
+   const V=Math.min(172,R*(wide?.71:.90),h*(wide?.26:.24));
+   const cx=w*.5, cy=h*(wide?.49:.51)+4;
+   const crossingY=cy + R*Math.sin(tilt)*perspective/(perspective-R*Math.cos(tilt));
+   // Horizontal buttons flank M/N/O of the lower vertical alphabet; the up
+   // and down buttons are clear of the very top and bottom wheel letters.
+   const lowerWheelY=crossingY+V*.28;
+   const outerX=cx-Math.max(52,Math.min(64,w*.16));
+   const points={
+     left:[cx-outerX,lowerWheelY],right:[cx+outerX,lowerWheelY],
+     up:[cx,crossingY-V*1.68],down:[cx,crossingY+V*1.58]
+   };
+   const pad=46;
+   for(const [dir,[x,y]] of Object.entries(points)){
+     const btn=mobileArrowButtons[dir];
+     btn.style.left=Math.max(pad,Math.min(w-pad,x))+'px';
+     btn.style.top=Math.max(pad,Math.min(h-pad,y))+'px';
+   }
+ }
+ function clearMobileArrowPositions(){
+   for(const btn of Object.values(mobileArrowButtons)){
+     btn.style.left='';btn.style.top='';
+   }
+ }
+ window.addEventListener('resize',positionMobileArrows);
+ if(window.visualViewport)window.visualViewport.addEventListener('resize',positionMobileArrows);
+ function setMobileLayout(){
+   closeMobileMenu();
+   if(mobileMenuQuery.matches){
+     mobileMenuSlot.append(gameHead,gameTools);
+     document.body.insertBefore(gameControls,$('toast'));
+     positionMobileArrows();
+   }else{
+     document.body.insertBefore(gameHead,$('stagebar'));
+     document.body.insertBefore(gameControls,$('toast'));
+     document.body.insertBefore(gameTools,gameControls);
+     clearMobileArrowPositions();
+   }
+ }
+ mobileMenuBtn.addEventListener('click',()=>{
+   mobileMenu.hidden=false;
+   mobileMenuBtn.setAttribute('aria-expanded','true');
+ });
+ $('mobileMenuClose').addEventListener('click',closeMobileMenu);
+ mobileMenu.addEventListener('click',event=>{if(event.target===mobileMenu)closeMobileMenu();});
+ window.addEventListener('keydown',event=>{if(event.key==='Escape'&&!mobileMenu.hidden)closeMobileMenu();});
+ // Puzzle changes and restarts should return to the unobscured wheel.
+ for(const id of ['puzzle','reset','next']){
+   $(id).addEventListener(id==='puzzle'?'change':'click',closeMobileMenu);
+ }
+ if(mobileMenuQuery.addEventListener)mobileMenuQuery.addEventListener('change',setMobileLayout);
+ else mobileMenuQuery.addListener(setMobileLayout);
+ setMobileLayout();
 function project(x,y,z,cx,cy){let s=perspective/(perspective+z);return{x:cx+x*s,y:cy+y*s,s};}
 function ring(points,alpha){ctx.save();ctx.strokeStyle=`rgba(123,190,232,${alpha})`;ctx.lineWidth=1.3;
  ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();ctx.restore();}
@@ -387,8 +710,13 @@ function render(t){
   const a=i/220*TWO,z=R*Math.sin(a),x=R*Math.cos(a);
   hring.push(project(x,-z*Math.sin(tilt),z*Math.cos(tilt),cx,cy));
  }ring(hring,.21);
+ // On phone the rear horizontal letter sits directly behind the upper alphabet.
+ // Compress the visible vertical segment *visually* to keep that puzzle-critical
+ // rear letter unobstructed. The wheel's 26-letter indexing/movement is unchanged.
+ const mobileCompact=matchMedia('(max-width:700px)').matches;
+ const verticalVisualStep=verticalStep*(mobileCompact?.64:1);
  const vring=[];for(let i=0;i<=90;i++){
-  const a=-Math.PI/2+((i/90)*2-1)*verticalStep*3.35;
+  const a=-Math.PI/2+((i/90)*2-1)*verticalVisualStep*3.35;
   vring.push(project(0,V*Math.cos(a),V*Math.sin(a),cx,crossingY));
  }ring(vring,.23);
  // A faint mechanical line helps reveal which rear letter shares the current axle.
@@ -411,6 +739,9 @@ function render(t){
  // intersection so the selected front vertical glyph is never a doubled letter.
  for(const item of horizontal){
   if(item.pos===cursor && Math.hypot(item.x-cx,item.y-crossingY)<22*scaleText)continue;
+  // On narrow phones, render the rear selected letter last so the vertical
+  // alphabet can never visually cover it (including during wheel animation).
+  if(mobileCompact && item.pos===opposite)continue;
   if(item.pos===opposite)circle(item.x,item.y,23*scaleText,null,'rgba(255,218,143,.34)');
   drawLetter(item,.27);
  }
@@ -424,20 +755,29 @@ function render(t){
  const centerIndex=-verticalPhase/verticalStep;
  for(let absolute=Math.floor(centerIndex)-4;absolute<=Math.ceil(centerIndex)+4;absolute++){
   const offset=absolute-centerIndex,distance=Math.abs(offset);if(distance>3.46)continue;
-  const a=-Math.PI/2+offset*verticalStep,z=V*Math.sin(a),y=V*Math.cos(a),p=project(0,y,z,cx,crossingY);
+  const a=-Math.PI/2+offset*verticalVisualStep,z=V*Math.sin(a),y=V*Math.cos(a),p=project(0,y,z,cx,crossingY);
   vert.push({kind:'vertical',ch:ABC[mod(absolute,26)],x:p.x,y:p.y,depth:z,scale:p.s,back:false,
-    frontness:Math.max(.3,1-distance*.18),font:distance<.49 ? flankSize/(p.s*(.85+.17*Math.max(.3,1-distance*.18))) : 30*scaleText,selected:distance<.49,
+    frontness:Math.max(.3,1-distance*.18),font:distance<.49 ? flankSize/(p.s*(.85+.17*Math.max(.3,1-distance*.18))) : (mobileCompact?22:30)*scaleText,selected:distance<.49,
     opacity:Math.max(0,Math.min(1,(3.46-distance)/.5))});
  }
  vert.sort((a,b)=>b.depth-a.depth);
  for(const item of vert)drawLetter(item,.17);
+ if(mobileCompact){
+   // Selected opposite letter is vital for planning. Give it absolute visual
+   // priority over the alphabet without changing its position or wheel rules.
+   const rear=horizontal.find(item=>item.pos===opposite);
+   if(rear){
+     circle(rear.x,rear.y,23*scaleText,null,'rgba(255,218,143,.5)');
+     drawLetter({...rear,opacity:1.65},.27);
+   }
+ }
  circle(cx,crossingY,34*scaleText,null,'rgba(255,190,115,.55)');
  requestAnimationFrame(render);
 }
 // Expose read-only game state for local automated browser tests only.
 window.__wheelTest={getState:()=>wheel.map(i=>ABC[i]).join(''),getCursor:()=>cursor,
  getWords:()=>PUZZLES[puzzleIndex].words.slice(),getMirrorRear:()=>mirrorRear,getReference:()=>PUZZLES[puzzleIndex].reference,getPuzzle:()=>PUZZLES[puzzleIndex].name,getLevel:()=>level,getMoves:()=>moves,getTime:()=>timeMs(),getScore:()=>lastRunScore,
- move,reset,start:()=>{if(!gameRunning){gameRunning=true;activeSince=performance.now();$('readyOverlay').hidden=true;}},findCurrent:()=>findWord(PUZZLES[puzzleIndex].words[Math.min(level,PUZZLES[puzzleIndex].words.length-1)])};
+ getTouchZone:touchWheelAt,getAudioState:()=>clickContext?.state||"not initialized",move,reset,start:()=>{if(!gameRunning){gameRunning=true;activeSince=performance.now();$('readyOverlay').hidden=true;}},findCurrent:()=>findWord(PUZZLES[puzzleIndex].words[Math.min(level,PUZZLES[puzzleIndex].words.length-1)])};
 reset();requestAnimationFrame(render);
 })();
 </script>
