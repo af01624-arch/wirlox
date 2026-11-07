@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>WIRLOX · Puzzle Bank 01 · Factory 5.1</title>
+<title>WIRLOX · Puzzle Bank 01 · Factory 5.2</title>
 <style>
   :root{color-scheme:dark;--blue:#8bd4ff;--warm:#ffe69a;--muted:#99a8c4;--panel:rgba(8,15,34,.72)}
   *{box-sizing:border-box}
@@ -370,6 +370,46 @@ canvas#wheel{transform:translateY(65px)}
   canvas#wheel{transform:none}
 }
 
+
+/* Factory 5.2: Approved portrait study. Only portrait changes; landscape 5.1 unchanged.
+   The wheel and all 88x88 arrows move together; no swipe controls. */
+@media (max-width:700px) and (orientation:portrait) {
+  #focusUI .focusNav {top:12px;left:15px;right:15px}
+  #focusUI .focusHero {top:46px;}
+  #focusUI .focusActive {min-height:96px;height:96px;width:min(300px,calc(100vw - 54px));border-radius:16px}
+  #focusUI .focusCaption {font-size:10px;line-height:12px;margin-bottom:6px}
+  #focusUI .focusCurrent {font-size:52px;line-height:1}
+  #focusUI .focusQueue {margin-top:7px;gap:7px}
+  #focusUI .focusNext {font-size:12px;padding:7px 10px;border-radius:8px}
+  #focusUI .focusTiers {margin-top:6px;gap:13px}
+  #focusUI .focusTier {font-size:9px;line-height:11px;gap:3px}
+  #focusUI .focusTier b {font-size:14px;line-height:16px}
+  #focusUI .focusStatsFooter{bottom:calc(env(safe-area-inset-bottom, 0px) + 11px)}
+  canvas#wheel {transform: translateY(var(--portrait-wheel-shift, 32px)) !important;}
+  .controls button {transform: translate(-50%,-50%) !important;}
+}
+@media (max-width:700px) and (orientation:portrait) and (max-height:720px) {
+  #focusUI .focusActive{min-height:84px;height:84px}
+  #focusUI .focusCurrent{font-size:49px}
+}
+/* Approved Safari compact case. The address bar and browser toolbar reduce
+   usable height; 88x88 arrows stay intact, wheel becomes 80% in this case. */
+@media(max-width:700px) and (orientation:portrait) and (max-height:650px){
+  #focusUI .focusNav{top:10px}
+  #focusUI .focusHero{top:46px}
+  #focusUI .focusActive{height:74px;min-height:74px}
+  #focusUI .focusCaption{font-size:9px;line-height:10px;margin-bottom:4px}
+  #focusUI .focusCurrent{font-size:42px}
+  #focusUI .focusQueue{margin-top:6px;gap:6px}
+  #focusUI .focusNext{font-size:11px;padding:5px 9px}
+  #focusUI .focusTiers{margin-top:5px;gap:9px}
+  #focusUI .focusTier{display:flex;flex-direction:row;align-items:baseline;gap:3px;font-size:8px;letter-spacing:0}
+  #focusUI .focusTier b{font-size:11px;line-height:14px}
+  #focusUI .focusStatsFooter{bottom:8px;font-size:9px}
+  canvas#wheel{transform:translateY(20px) scale(.80)!important;transform-origin:center center}
+  .controls button{transform:translate(-50%,-50%)!important}
+}
+
 </style>
 </head>
 <body>
@@ -393,7 +433,7 @@ canvas#wheel{transform:translateY(65px)}
 </div>
 <div class="head">
  <div class="panel">
-  <h1>WIRLOX <span class="version">· FACTORY 5.1 · BANK 01</span></h1>
+  <h1>WIRLOX <span class="version">· FACTORY 5.2 · BANK 01</span></h1>
   <div class="sub">← → position · ↑ ↓ change letter · opposite pair moves with it</div>
   <div class="dayMood" id="dayMood">PUZZLE 01 / 07 · WARM-UP · 14 LETTERS</div>
   <div class="statLine">Time: <strong id="timer">0:00</strong> <span class="sep">|</span> Moves: <strong id="moves">0</strong> <span class="sep">|</span> PB: <strong id="pb">—</strong> <span class="sep">|</span> Word: <strong id="wordCount">1 / 3</strong><span id="minimumHeader" hidden> <span class="sep">|</span> Perfect: <strong id="minimumHeaderScore">—</strong></span></div>
@@ -780,28 +820,54 @@ $('puzzle').addEventListener('change',e=>{puzzleIndex=Number(e.target.value);res
  // No pointer, swipe, sound, scoring or movement logic is changed in this update.
  const mobileArrowButtons=Object.fromEntries(
    ['up','down','left','right'].map(dir=>[dir,gameControls.querySelector(`[data-dir="${dir}"]`)]));
- function positionMobileArrows(){
-   if(!mobileMenuQuery.matches)return;
-   const w=innerWidth,h=innerHeight,wide=w/h>1.15;
-   const R=Math.min(wide?269:242,w*.37,h*(wide?.35:.30));
-   const V=Math.min(172,R*(wide?.71:.90),h*(wide?.26:.24));
-   const cx=w*.5, cy=h*(wide?.49:.51)+4;
-   const crossingY=cy + R*Math.sin(tilt)*perspective/(perspective-R*Math.cos(tilt));
-   // Horizontal buttons flank M/N/O of the lower vertical alphabet; the up
-   // and down buttons are clear of the very top and bottom wheel letters.
-   const lowerWheelY=crossingY+V*.28;
-   const outerX=cx-Math.max(52,Math.min(64,w*.16));
-   const points={
-     left:[cx-outerX,lowerWheelY],right:[cx+outerX,lowerWheelY],
-     up:[cx,crossingY-V*1.68],down:[cx,crossingY+V*1.58]
-   };
-   const pad=46;
-   for(const [dir,[x,y]] of Object.entries(points)){
-     const btn=mobileArrowButtons[dir];
-     btn.style.left=Math.max(pad,Math.min(w-pad,x))+'px';
-     btn.style.top=Math.max(pad,Math.min(h-pad,y))+'px';
-   }
- }
+  function positionMobileArrows(){
+    if(!mobileMenuQuery.matches)return;
+    const w=innerWidth,h=innerHeight,wide=w/h>1.15;
+    const R=Math.min(wide?269:242,w*.37,h*(wide?.35:.30));
+    const V=Math.min(172,R*(wide?.71:.90),h*(wide?.26:.24));
+    const cx=w*.5,cy=h*(wide?.49:.51)+4;
+    const frontY=cy+R*Math.sin(tilt)*perspective/(perspective-R*Math.cos(tilt));
+    const rearY=cy-R*Math.sin(tilt)*perspective/(perspective+R*Math.cos(tilt));
+    let points;
+    if(w<=700 && w<h){
+      if(h<=650){
+        // Same canvas transform as the approved compact Safari 390x600 preview.
+        // Use the real rendered centre of the wheel to position the buttons.
+        const k=.80,front=h*.5+(frontY-h*.5)*k+20;
+        const rear=h*.5+(rearY-h*.5)*k+20;
+        const tiers=document.querySelector('#focusUI .focusTiers').getBoundingClientRect();
+        points={
+          up:[cx,Math.max(tiers.bottom+52,rear-63)],
+          down:[cx,Math.min(h-91,front+142)],
+          left:[44,front+69],right:[w-44,front+69]
+        };
+      }else{
+        const shift=Math.max(25,Math.min(45,h*.105-43));
+        document.documentElement.style.setProperty('--portrait-wheel-shift',shift+'px');
+        const fy=frontY+shift,ry=rearY+shift;
+        points={
+          up:[cx,Math.min(ry-72,315)],
+          down:[cx,Math.min(h-85,fy+170)],
+          left:[45,fy+69],right:[w-45,fy+69]
+        };
+      }
+    }else{
+      // The pre-existing landscape positioner is intentionally unchanged.
+      const crossingY=cy + R*Math.sin(tilt)*perspective/(perspective-R*Math.cos(tilt));
+      const lowerWheelY=crossingY+V*.28;
+      const outerX=cx-Math.max(52,Math.min(64,w*.16));
+      points={
+        left:[cx-outerX,lowerWheelY],right:[cx+outerX,lowerWheelY],
+        up:[cx,crossingY-V*1.68],down:[cx,crossingY+V*1.58]
+      };
+    }
+    for(const [dir,[x,y]] of Object.entries(points)){
+      const btn=mobileArrowButtons[dir];
+      // Keep the approved portrait positions (44/45px half-button margins),
+      // without reducing the 88x88px hit area.
+      btn.style.left=x+'px';btn.style.top=y+'px';
+    }
+  }
  function clearMobileArrowPositions(){
    for(const btn of Object.values(mobileArrowButtons)){
      btn.style.left='';btn.style.top='';
