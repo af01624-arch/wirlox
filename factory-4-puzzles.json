@@ -1,0 +1,135 @@
+{
+  "collection": "WIRLOX Puzzle Bank 01",
+  "originalVersion": "Factory Test 4.1",
+  "count": 7,
+  "originalPuzzleOrder": "Monday through Sunday, relabelled Puzzle 01–07 for public testing",
+  "preservation": "Keep original name keys for existing PBs and notes; retain start wheels, targets, certified minima and thresholds unchanged.",
+  "rules": {
+    "horizontalWheelLetters": 14,
+    "wordsPerPuzzle": 3,
+    "linkedOppositePosition": true,
+    "moveCountPrimary": true,
+    "stopwatchSecondary": true
+  },
+  "puzzles": [
+    {
+      "number": 1,
+      "name": "F4-Monday",
+      "day": "Monday",
+      "mood": "Warm-up",
+      "mode": "14 letters · 3 words",
+      "start": "NTCRTYINVANRJE",
+      "words": [
+        "APPLE",
+        "PLANT",
+        "TRAIN"
+      ],
+      "reference": 20,
+      "excellent": 23,
+      "good": 28,
+      "average": 36
+    },
+    {
+      "number": 2,
+      "name": "F4-Tuesday",
+      "day": "Tuesday",
+      "mood": "Find the links",
+      "mode": "14 letters · 3 words",
+      "start": "REBGSIZERNRVSI",
+      "words": [
+        "MOUSE",
+        "BREAD",
+        "RIVER"
+      ],
+      "reference": 21,
+      "excellent": 24,
+      "good": 29,
+      "average": 37
+    },
+    {
+      "number": 3,
+      "name": "F4-Wednesday",
+      "day": "Wednesday",
+      "mood": "Plan ahead",
+      "mode": "14 letters · 3 words",
+      "start": "SWOPCDQSWBTSOJ",
+      "words": [
+        "BRUSH",
+        "STONE",
+        "GHOST"
+      ],
+      "reference": 22,
+      "excellent": 25,
+      "good": 30,
+      "average": 38
+    },
+    {
+      "number": 4,
+      "name": "F4-Thursday",
+      "day": "Thursday",
+      "mood": "Hidden leverage",
+      "mode": "14 letters · 3 words",
+      "start": "MCNNXHQRAKMIPX",
+      "words": [
+        "CLOUD",
+        "TRAIN",
+        "FLAME"
+      ],
+      "reference": 21,
+      "excellent": 24,
+      "good": 29,
+      "average": 37
+    },
+    {
+      "number": 5,
+      "name": "F4-Friday",
+      "day": "Friday",
+      "mood": "The challenge",
+      "mode": "14 letters · 3 words",
+      "start": "PEAMFPAPGIDKBX",
+      "words": [
+        "GRAPE",
+        "FIELD",
+        "CANDY"
+      ],
+      "reference": 26,
+      "excellent": 29,
+      "good": 34,
+      "average": 42
+    },
+    {
+      "number": 6,
+      "name": "F4-Saturday",
+      "day": "Saturday",
+      "mood": "Expert wheel",
+      "mode": "14 letters · 3 words",
+      "start": "RIBLJDSEARIGNF",
+      "words": [
+        "SHINE",
+        "BRICK",
+        "DREAM"
+      ],
+      "reference": 26,
+      "excellent": 29,
+      "good": 34,
+      "average": 42
+    },
+    {
+      "number": 7,
+      "name": "F4-Sunday",
+      "day": "Sunday",
+      "mood": "The slow spin",
+      "mode": "14 letters · 3 words",
+      "start": "YFACHREBOZZWAT",
+      "words": [
+        "BEACH",
+        "GREEN",
+        "WATER"
+      ],
+      "reference": 23,
+      "excellent": 26,
+      "good": 31,
+      "average": 39
+    }
+  ]
+}

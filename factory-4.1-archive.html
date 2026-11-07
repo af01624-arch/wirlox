@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>WIRLOX · Puzzle Factory 4.1</title>
+<style>
+  :root{color-scheme:dark;--blue:#8bd4ff;--warm:#ffe69a;--muted:#99a8c4;--panel:rgba(8,15,34,.72)}
+  *{box-sizing:border-box}
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;color:#f7f9ff;
+    background:radial-gradient(ellipse at 50% 28%,#222c4d 0%,#111a33 43%,#080d1e 100%);
+    font-family:Arial,Helvetica,sans-serif}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+  .head{position:absolute;z-index:5;top:15px;left:20px;right:20px;display:flex;align-items:flex-start;
+    justify-content:space-between;gap:12px;pointer-events:none}
+  .panel{border:1px solid rgba(174,206,255,.15);background:var(--panel);backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);border-radius:14px;padding:13px 16px;min-width:0}
+  h1{font-size:16px;letter-spacing:.035em;margin:0 0 5px;font-weight:700}
+  .sub{color:var(--muted);font-size:12px;line-height:1.45}
+  .targetBox{text-align:right;min-width:166px}
+  .eyebrow{font-size:10px;letter-spacing:.17em;color:#a7b8db;margin-bottom:4px}
+  #target{font-size:33px;letter-spacing:.16em;font-weight:750;text-shadow:0 0 17px rgba(123,197,255,.24)}
+  .statLine{font-size:12px;color:#c0cee9;margin-top:5px}
+  .stagebar{position:absolute;top:119px;left:50%;transform:translateX(-50%);
+    z-index:5;display:flex;align-items:center;gap:8px;pointer-events:none}
+  .wordpill{padding:7px 12px;border-radius:9px;border:1px solid rgba(172,200,255,.26);
+    background:rgba(14,24,48,.72);font-size:12px;letter-spacing:.09em;color:#d5e2fa;
+    min-width:80px;text-align:center}
+  .wordpill.active{border-color:rgba(255,231,155,.5);color:#ffe79d;background:rgba(110,78,20,.21)}
+  .wordpill.done{border-color:rgba(137,216,185,.3);color:#a2ecd2}
+  .help{position:absolute;left:20px;bottom:19px;z-index:5;font-size:12px;line-height:1.65;
+    color:#aebcda;background:rgba(8,15,34,.5);border-radius:11px;padding:10px 12px;pointer-events:none}
+  .tools{position:absolute;right:20px;bottom:19px;z-index:6;display:flex;flex-direction:column;align-items:end;gap:8px}
+  select,button{font:inherit;color:#e6eeff;background:rgba(26,39,73,.95);border:1px solid rgba(150,187,245,.3);border-radius:9px;padding:9px 11px}
+  button{cursor:pointer} button:hover{background:rgba(48,68,111,.95)} button:active{transform:translateY(1px)}
+  select{font-size:12px;max-width:220px}
+  .controls{display:none;position:absolute;z-index:6;left:50%;bottom:14px;transform:translateX(-50%);
+    grid-template-columns:repeat(3,54px);grid-template-rows:repeat(2,48px);gap:5px}
+  .controls button{font-size:21px;touch-action:manipulation;padding:4px}
+  .controls .up{grid-column:2;grid-row:1}.controls .left{grid-column:1;grid-row:2}
+  .controls .down{grid-column:2;grid-row:2}.controls .right{grid-column:3;grid-row:2}
+  #toast{position:absolute;left:50%;top:calc(50% + 160px);z-index:7;transform:translateX(-50%);
+    pointer-events:none;text-align:center;color:#e8f4ff;font-size:16px;font-weight:700;letter-spacing:.06em;
+    opacity:0;transition:opacity .2s;text-shadow:0 0 22px #357fac;white-space:nowrap}
+  #toast.show{opacity:1}
+  #results{position:absolute;z-index:8;left:50%;top:50%;transform:translate(-50%,-50%);
+    border:1px solid rgba(190,225,255,.28);border-radius:18px;background:rgba(8,14,31,.94);
+    box-shadow:0 18px 75px rgba(0,0,0,.6);padding:28px 35px;text-align:center;
+    display:none;min-width:min(340px,90vw)}
+  #results h2{margin:0 0 12px;font-size:21px}#results .score{font-size:57px;font-weight:800;color:#ffe7a4}
+  #results .tier{font-size:20px;color:#b8ecd6;margin:6px 0 10px}
+  #results p{font-size:13px;color:#bdcbe5;line-height:1.5}
+  @media(max-width:700px){
+    .head{top:9px;left:9px;right:9px;gap:6px}.panel{padding:9px 10px;border-radius:10px}
+    h1{font-size:12px}.sub{font-size:10px}.targetBox{min-width:128px}
+    #target{font-size:24px}.eyebrow{font-size:9px}.statLine{font-size:10px}
+    .stagebar{top:115px;gap:5px}.wordpill{min-width:62px;padding:6px 6px;font-size:10px}
+    .help{left:9px;bottom:10px;font-size:10px;max-width:125px;padding:6px 8px}
+    .tools{right:9px;bottom:10px}.tools select{max-width:146px;font-size:10px;padding:7px}
+    .tools button{font-size:11px;padding:8px}
+    .controls{display:grid;bottom:8px}
+    .help{display:none}.tools{bottom:122px;right:8px}
+    #toast{top:calc(50% + 105px);font-size:14px}
+  }
+  @media(max-height:610px) and (min-width:701px){.stagebar{top:82px}.head{top:9px}.panel{padding:8px 11px}.help,.tools{bottom:8px}}
+
+  .minimumPanel{border:1px solid rgba(172,219,255,.24);border-radius:12px;padding:12px 13px;
+    margin:11px 0;background:rgba(38,60,101,.25)}
+  .minimumHeading{font-size:10px;color:#b0c6eb;font-weight:700;letter-spacing:.13em}
+  .minimumComparison{display:flex;align-items:baseline;justify-content:center;gap:15px;margin:7px 0 4px}
+  #minimumScore{font-size:34px;color:#ffe5a2;font-weight:800}
+  #minimumGap{color:#cae1f7;font-size:15px;font-weight:700}
+  .minimumExplanation{font-size:11px;color:#b5c4df;line-height:1.4}
+  .dayMood{font-size:11px;color:#ffe0a5;letter-spacing:.10em;margin-top:7px;font-weight:700}
+  .rating{margin:15px 0 11px;padding:11px;border-radius:12px;background:rgba(66,87,131,.20);border:1px solid rgba(142,171,215,.18)}
+  .ratingTitle{font-size:10px;letter-spacing:.13em;color:#adc3eb;font-weight:700;margin-bottom:9px}
+  .ratingButtons{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+  .ratingButtons button{font-size:11px;padding:8px 10px}
+  .ratingButtons button.selected{border-color:#e4ce8b;background:rgba(165,128,55,.34);color:#ffe8ad}
+  #feedbackNote{display:block;width:100%;margin:9px auto 8px;border-radius:7px;border:1px solid rgba(159,193,237,.27);background:rgba(9,17,35,.78);color:#fff;padding:10px;font-size:12px}
+  #saveFeel,#copyFeedback{font-size:11px;padding:8px 11px}
+  #copyFeedback{margin-top:10px}
+  .resultActions{display:flex;gap:8px;justify-content:center;margin-top:8px}
+  .copyStatus{font-size:11px;color:#b9ecd9;margin-top:7px}
+  #copyFallback{width:100%;height:85px;margin-top:6px;resize:vertical;background:#0a1430;color:#f2f7ff;border:1px solid #62739e}
+  #results{max-height:88vh;overflow-y:auto;min-width:min(360px,94vw)}
+  @media(max-width:700px){.dayMood{font-size:9px;margin-top:4px}.rating{padding:8px;margin:9px 0}.ratingButtons button{padding:7px 8px}}
+  .version{font-size:10px;color:#8a9ebb;font-weight:normal}
+  .legendHorizontal{color:#87d9ff}.legendVertical{color:#ffc17e}
+  #rearToggle{font-size:12px;border-color:rgba(255,196,126,.4);color:#ffcf91;background:rgba(82,53,29,.4);white-space:nowrap}
+  #rearToggle:hover{background:rgba(105,66,27,.54)}
+  .panel.targetBox{border-color:rgba(255,191,110,.24)}
+  #target{color:#ffc17e;text-shadow:0 0 16px rgba(255,172,87,.17)}
+  #finalScore{color:#9adcf8}
+  .wordpill.active{border-color:#f8bc7a;color:#ffcf98;background:rgba(116,70,30,.28)}
+  .wordpill.done{color:#9de6cf}
+  @media(max-width:700px){.tools{gap:5px}#rearToggle{font-size:10px;padding:7px 9px}.tools{bottom:119px}}
+
+  #timer{color:#ffe7a4;font-size:16px;letter-spacing:.055em;font-variant-numeric:tabular-nums}
+  #timer.overtime{color:#ffad9c}
+  .clockLabel{color:#9fb3db;font-size:10px;letter-spacing:.06em}
+  .scoreGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 10px}
+  .scoreBox{border-radius:10px;border:1px solid rgba(162,196,255,.22);background:rgba(39,59,101,.19);padding:8px}
+  .scoreBox .big{display:block;font-size:27px;line-height:1.25;font-weight:800;color:#e4f3ff;font-variant-numeric:tabular-nums}
+  .scoreBox .name{font-size:10px;letter-spacing:.1em;color:#aabfe7}
+  #finalScore{font-size:53px;color:#ffe7a4;font-weight:800;font-variant-numeric:tabular-nums}
+  #resultScoreCaption{font-size:10px;color:#aebfe0;letter-spacing:.1em}
+  #scoreBest{font-size:12px;color:#bdd4ef;margin:8px 0 3px}
+  #readyOverlay{position:fixed;inset:0;z-index:20;background:rgba(5,11,27,.97);display:flex;align-items:center;justify-content:center;padding:20px}
+  #readyOverlay[hidden]{display:none}
+  .readyCard{width:min(440px,95vw);padding:24px 25px;border:1px solid rgba(160,194,244,.35);background:linear-gradient(160deg,#182342,#0b1225);border-radius:19px;box-shadow:0 24px 70px #0009;text-align:center}
+  .readyCard h2{margin:5px 0 8px;font-size:22px}
+  .readyCard .readyWords{font-weight:800;letter-spacing:.07em;font-size:16px;color:#ffe5aa;line-height:1.9}
+  .readyCard p{font-size:13px;color:#c2d2eb;line-height:1.5}
+  #startRun{font-size:16px;font-weight:700;padding:12px 32px;margin:12px auto 4px;background:rgba(57,93,158,.6)}
+  @media(max-width:700px){#timer{font-size:13px}.scoreBox .big{font-size:24px}.readyCard{padding:20px}}
+  .sep{opacity:.5}
+  .stagebar{max-width:96vw;flex-wrap:wrap;justify-content:center;row-gap:5px}
+  .dayMood{white-space:normal}
+  .wordpill{min-width:70px}
+  .tools select{max-width:270px}
+  @media(max-width:700px){.stagebar{top:141px;max-width:95vw}.wordpill{min-width:62px;font-size:10px;padding:6px 7px}.tools select{max-width:153px}.version{display:block;font-size:9px;margin-top:2px}}
+  @media(max-width:370px){.wordpill{min-width:57px;font-size:9px}}
+</style>
+</head>
+<body>
+<canvas id="wheel"></canvas>
+<div class="head">
+ <div class="panel">
+  <h1>WIRLOX <span class="version">· FACTORY TEST 4.1</span></h1>
+  <div class="sub">← → position · ↑ ↓ change letter · opposite pair moves with it</div>
+  <div class="dayMood" id="dayMood">MONDAY · WARM-UP · 14 LETTERS</div>
+  <div class="statLine">Time: <strong id="timer">0:00</strong> <span class="sep">|</span> Moves: <strong id="moves">0</strong> <span class="sep">|</span> PB: <strong id="pb">—</strong> <span class="sep">|</span> Word: <strong id="wordCount">1 / 3</strong><span id="minimumHeader" hidden> <span class="sep">|</span> Perfect: <strong id="minimumHeaderScore">—</strong></span></div>
+ </div>
+ <div class="panel targetBox"><div class="eyebrow" id="dayLabel">MONDAY · WORD 1</div>
+  <div id="target">APPLE</div><div id="tierLine" class="statLine">Perfect score revealed after completion</div>
+ </div>
+</div>
+<div class="stagebar" id="stagebar"></div>
+<div class="help"><span class="legendHorizontal">●</span> Horizontal alphabet &nbsp; <span class="legendVertical">●</span> Vertical alphabet<br>14 letters · three familiar words.<br>← → position &nbsp; ↑ ↓ alter linked letters.<br>Every arrow press costs one move. Stopwatch is secondary.</div>
+<div class="tools">
+ <select id="puzzle" aria-label="Choose weekday puzzle">
+  <option value="0">Monday · APPLE / PLANT / TRAIN</option>
+  <option value="1">Tuesday · MOUSE / BREAD / RIVER</option>
+  <option value="2">Wednesday · BRUSH / STONE / GHOST</option>
+  <option value="3">Thursday · CLOUD / TRAIN / FLAME</option>
+  <option value="4">Friday · GRAPE / FIELD / CANDY</option>
+  <option value="5">Saturday · SHINE / BRICK / DREAM</option>
+  <option value="6">Sunday · BEACH / GREEN / WATER</option>
+ </select>
+ <button id="rearToggle" type="button" aria-pressed="false" title="Change how the back letters are displayed">Rear: readable</button>
+ <button id="reset" type="button">↻ Restart</button>
+ <button id="next" type="button">Next day →</button>
+</div>
+<div class="controls" aria-label="Touch arrow controls">
+ <button class="up" type="button" data-dir="up" aria-label="Previous letter">↑</button>
+ <button class="left" type="button" data-dir="left" aria-label="Rotate left">←</button>
+ <button class="down" type="button" data-dir="down" aria-label="Next letter">↓</button>
+ <button class="right" type="button" data-dir="right" aria-label="Rotate right">→</button>
+</div>
+<div id="toast" aria-live="polite"></div>
+<div id="results" role="status"><h2 id="resultTitle">WORDS FOUND</h2>
+ <div class="scoreGrid"><div class="scoreBox"><span class="name">TIME</span><span class="big" id="finalTime">0:00</span></div>
+ <div class="scoreBox"><span class="name">MOVES</span><span class="big" id="finalMoves">0</span></div></div>
+ <div id="resultScoreCaption">PRIMARY SCORE · MOVES (LOWER IS BETTER)</div>
+ <div id="finalScore">—</div><div id="scoreBest">Move-count PB: —</div><div id="finalTier" class="tier">Excellent</div>
+ <div class="minimumPanel" id="minimumPanel" aria-live="polite">
+   <div class="minimumHeading">PROVEN MATHEMATICAL MINIMUM</div>
+   <div class="minimumComparison"><span id="minimumScore">—</span><span id="minimumGap">—</span></div>
+   <div class="minimumExplanation" id="minimumExplanation">The fewest possible moves under the wheel rules.</div>
+ </div>
+ <p id="finalDetail"></p>
+ <div class="rating" id="rating">
+   <div class="ratingTitle">HOW DID THIS PUZZLE FEEL?</div>
+   <div class="ratingButtons">
+      <button type="button" data-feel="Clever">Clever</button>
+      <button type="button" data-feel="Straightforward">Straightforward</button>
+      <button type="button" data-feel="Grindy">Grindy</button>
+   </div>
+   <input id="feedbackNote" type="text" placeholder="Optional: aha moment, overlap, repetition…" aria-label="Playtest feedback note" maxlength="240" />
+   <button id="saveFeel" type="button">Save note</button>
+ </div>
+ <div class="resultActions"><button id="playAgain" type="button">Try again</button><button id="nextDone" type="button">Next day →</button></div>
+ <button id="copyFeedback" type="button">Copy seven-day feedback</button>
+ <div class="copyStatus" id="copyStatus" role="status"></div>
+ <textarea id="copyFallback" readonly aria-label="Feedback to copy" style="display:none"></textarea>
+</div>
+<div id="readyOverlay" role="dialog" aria-modal="true" aria-labelledby="readyTitle">
+  <div class="readyCard">
+    <div class="eyebrow">THE CLOCK STARTS WHEN YOU CHOOSE</div>
+    <h2 id="readyTitle">READY TO PLAY?</h2>
+    <div class="sub" id="readyMode">Monday · 14 letters · 3 words</div>
+    <div class="readyWords" id="readyWords">HOUSE · SMILE · PLANT</div>
+    <p>All three targets are visible. Find them in order; the wheels retain every change. Moves determine your result, while the stopwatch is a secondary stat.</p>
+    <p><b>No time limit.</b> Try both rear-letter display modes — switching costs no moves.</p>
+    <button id="startRun" type="button">Start</button>
+  </div>
+</div>
+<script>
+(() => {
+'use strict';
+const ABC='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const PUZZLES=[{"name":"F4-Monday","day":"Monday","mood":"Warm-up","mode":"14 letters \u00b7 3 words","start":"NTCRTYINVANRJE","words":["APPLE","PLANT","TRAIN"],"reference":20,"excellent":23,"good":28,"average":36},{"name":"F4-Tuesday","day":"Tuesday","mood":"Find the links","mode":"14 letters \u00b7 3 words","start":"REBGSIZERNRVSI","words":["MOUSE","BREAD","RIVER"],"reference":21,"excellent":24,"good":29,"average":37},{"name":"F4-Wednesday","day":"Wednesday","mood":"Plan ahead","mode":"14 letters \u00b7 3 words","start":"SWOPCDQSWBTSOJ","words":["BRUSH","STONE","GHOST"],"reference":22,"excellent":25,"good":30,"average":38},{"name":"F4-Thursday","day":"Thursday","mood":"Hidden leverage","mode":"14 letters \u00b7 3 words","start":"MCNNXHQRAKMIPX","words":["CLOUD","TRAIN","FLAME"],"reference":21,"excellent":24,"good":29,"average":37},{"name":"F4-Friday","day":"Friday","mood":"The challenge","mode":"14 letters \u00b7 3 words","start":"PEAMFPAPGIDKBX","words":["GRAPE","FIELD","CANDY"],"reference":26,"excellent":29,"good":34,"average":42},{"name":"F4-Saturday","day":"Saturday","mood":"Expert wheel","mode":"14 letters \u00b7 3 words","start":"RIBLJDSEARIGNF","words":["SHINE","BRICK","DREAM"],"reference":26,"excellent":29,"good":34,"average":42},{"name":"F4-Sunday","day":"Sunday","mood":"The slow spin","mode":"14 letters \u00b7 3 words","start":"YFACHREBOZZWAT","words":["BEACH","GREEN","WATER"],"reference":23,"excellent":26,"good":31,"average":39}];
+const canvas=document.getElementById('wheel'),ctx=canvas.getContext('2d');
+const $=id=>document.getElementById(id);
+const TWO=Math.PI*2,tilt=Math.PI*.10,perspective=950,verticalStep=TWO/26;
+let puzzleIndex=0,level=0,moves=0,breakdown=[],wheel=[],cursor=0,verticalRaw=0;
+let horizontalPhase=0,targetHorizontalPhase=0,verticalPhase=0,targetVerticalPhase=0;
+let width=0,height=0,dpr=1,transition=false,finished=false,winPositions=[],lastFrame=performance.now(),toastTimeout=0,stageTimeout=0;
+// Count actual elapsed play time, excluding the forced one-second animation between words.
+let gameRunning=false,elapsedMs=0,activeSince=0,lastShownSeconds=-1,lastRunScore=null;
+const timeMs=()=>elapsedMs+(gameRunning&&!transition&&!finished?performance.now()-activeSince:0);
+const secondsForScore=()=>Math.max(1,Math.floor(timeMs()/1000));
+const clockText=sec=>`${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`;
+function freezeTime(){if(gameRunning&&!transition&&!finished){elapsedMs+=performance.now()-activeSince;activeSince=0;}}
+function resumeTime(){if(gameRunning&&!finished)activeSince=performance.now();}
+function refreshClock(){const sec=Math.floor(timeMs()/1000);if(sec!==lastShownSeconds){lastShownSeconds=sec;$('timer').textContent=clockText(sec);$('timer').classList.toggle('overtime',sec>=300);}}
+function scoreKey(){return 'wirlox-factory4-fastest-'+PUZZLES[puzzleIndex].name;}
+function getScorePB(){try{return JSON.parse(localStorage.getItem(scoreKey())||'null');}catch(e){return null;}}
+function saveScorePB(score,seconds){const prev=getScorePB();if(!prev||score<prev.score||(score===prev.score&&seconds<prev.seconds)){try{localStorage.setItem(scoreKey(),JSON.stringify({score,seconds,moves}));}catch(e){}}}
+const mod=(a,n)=>((a%n)+n)%n;
+const closest=(alphaIndex,current)=>alphaIndex+Math.round((current-alphaIndex)/26)*26;
+const n=()=>wheel.length,hs=()=>TWO/n();
+const sessionPB=Object.create(null);
+let mirrorRear=false;
+function setMirrorRear(value){mirrorRear=!!value;$('rearToggle').textContent=mirrorRear?'Rear: mirrored':'Rear: readable';$('rearToggle').setAttribute('aria-pressed',String(mirrorRear));try{localStorage.setItem('wirlox-factory4-rear-mirrored',mirrorRear?'1':'0');}catch(e){}}
+$('rearToggle').addEventListener('click',()=>setMirrorRear(!mirrorRear));
+try{setMirrorRear(localStorage.getItem('wirlox-factory4-rear-mirrored')==='1');}catch(e){setMirrorRear(false);}
+function getPB(){const key=PUZZLES[puzzleIndex].name;if(sessionPB[key]!=null)return sessionPB[key];try{const value=Number(localStorage.getItem('wirlox-factory4-'+key))||null;if(value!=null)sessionPB[key]=value;return value;}catch(e){return null;}}
+function savePB(){const key=PUZZLES[puzzleIndex].name;const best=getPB();if(best===null||moves<best){sessionPB[key]=moves;try{localStorage.setItem('wirlox-factory4-'+key,String(moves));}catch(e){}}}
+const sessionReview=Object.create(null);
+function reviewKey(){return 'wirlox-factory4-review-'+PUZZLES[puzzleIndex].name;}
+function readReview(){const key=reviewKey();if(sessionReview[key])return sessionReview[key];try{const raw=localStorage.getItem(key);if(raw)return JSON.parse(raw);}catch(e){}return {feel:'',note:''};}
+function writeReview(o){const key=reviewKey();sessionReview[key]=o;try{localStorage.setItem(key,JSON.stringify(o));}catch(e){}}
+function updateFeedback(){const obj=readReview();$('feedbackNote').value=obj.note||'';document.querySelectorAll('[data-feel]').forEach(b=>b.classList.toggle('selected',b.dataset.feel===obj.feel));$('copyStatus').textContent='';$('copyFallback').style.display='none';}
+function saveReview(){const old=readReview();writeReview({feel:old.feel,note:$('feedbackNote').value.trim()});$('copyStatus').textContent='Feedback saved locally for this puzzle.';}
+function weeklyNotes(){return ['WIRLOX — Factory Test 4',...PUZZLES.map(p=>{
+ const stored=sessionPB[p.name];let best=stored??null;
+ if(best===null){try{best=Number(localStorage.getItem('wirlox-factory4-'+p.name))||null;}catch(e){}}
+ const key='wirlox-factory4-review-'+p.name;let r=sessionReview[key]||null;
+ if(!r){try{r=JSON.parse(localStorage.getItem(key)||'null');}catch(e){}}
+ let timed=null;try{timed=JSON.parse(localStorage.getItem('wirlox-factory4-fastest-'+p.name)||'null');}catch(e){}
+ const timedLabel=timed?` | best-time-at-PB ${clockText(timed.seconds)} (${timed.moves} moves)`:'';
+ const gap=best===null?'—':(best-p.reference>=0?'+'+(best-p.reference):''+(best-p.reference));
+ return `${p.mode} · ${p.day}: ${p.words.join(' / ')} | PB ${best??'not played'} | perfect ${best===null?'hidden':p.reference} | gap ${gap} | ${r?.feel||'no rating'}${r?.note?' | '+r.note:''}${timedLabel}`;
+ })].join('\n');}
+function copyAllNotes(){const str=weeklyNotes();if(navigator.clipboard?.writeText){navigator.clipboard.writeText(str).then(()=>{$('copyStatus').textContent='Weekly feedback copied.';}).catch(()=>fallbackCopy(str));}else fallbackCopy(str);}
+function fallbackCopy(str){const ta=$('copyFallback');ta.style.display='block';ta.value=str;ta.focus();ta.select();try{if(document.execCommand('copy')){$('copyStatus').textContent='Weekly feedback copied.';ta.style.display='none';return;}}catch(e){}$('copyStatus').textContent='Select and copy this feedback text.';}
+function resize(){dpr=Math.min(devicePixelRatio||1,2.5);width=innerWidth;height=innerHeight;
+ canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);}
+window.addEventListener('resize',resize);resize();
+function updateUI(){
+ const p=PUZZLES[puzzleIndex];$('target').textContent=p.words[Math.min(level,p.words.length-1)];
+ $('dayMood').textContent=`${p.day.toUpperCase()} · ${p.mood.toUpperCase()} · 14 LETTERS`;
+ $('dayLabel').textContent=`${p.day.toUpperCase()} · WORD ${Math.min(level+1,p.words.length)}`;
+ $('wordCount').textContent=`${Math.min(level+1,p.words.length)} / ${p.words.length}`;
+ $('moves').textContent=moves; $('pb').textContent=getPB()??'—';
+ const alreadyPlayed=getPB()!==null || finished;
+ $('minimumHeader').hidden=!alreadyPlayed;
+ $('minimumHeaderScore').textContent=alreadyPlayed?p.reference:'—';
+ $('tierLine').textContent=`Excellent ≤ ${p.excellent} · Good ≤ ${p.good}`;
+ $('stagebar').innerHTML=p.words.map((word,i)=>`<div class="wordpill ${i<level?'done':i===level?'active':''}">${i<level?'✓ ':''}${word}${i<level?` · ${breakdown[i]}`:''}</div>`).join('');
+}
+function reset(){
+ if(stageTimeout)clearTimeout(stageTimeout);if(toastTimeout)clearTimeout(toastTimeout);
+ const p=PUZZLES[puzzleIndex];wheel=[...p.start].map(ch=>ABC.indexOf(ch));
+ gameRunning=false;elapsedMs=0;activeSince=0;lastShownSeconds=-1;lastRunScore=null;
+ $('readyMode').textContent=`${p.day} · ${p.mood} · 14 letters / 3 words`;
+ $('readyWords').textContent=p.words.join(' · ');
+ $('readyOverlay').hidden=false;
+ cursor=0;verticalRaw=wheel[0];horizontalPhase=targetHorizontalPhase=0;
+ // At i=0 the horizontal angle is -PI/2, so the wheel front is selected.
+ verticalPhase=targetVerticalPhase=-verticalRaw*verticalStep;
+ level=0;moves=0;breakdown=Array(p.words.length).fill(0);transition=false;finished=false;winPositions=[];
+ $('results').style.display='none';$('toast').classList.remove('show');updateUI();refreshClock();
+}
+function findWord(word){
+ const t=[...word].map(c=>ABC.indexOf(c));
+ for(let i=0;i<n();i++){
+  if(t.every((ch,j)=>wheel[(i+j)%n()]===ch))return Array.from({length:5},(_,j)=>(i+j)%n());
+ }return null;
+}
+function showToast(txt){$('toast').textContent=txt;$('toast').classList.add('show');}
+function check(){
+ if(transition||finished)return;
+ const match=findWord(PUZZLES[puzzleIndex].words[level]);
+ if(!match)return;
+ freezeTime();winPositions=match;transition=true;showToast(`${PUZZLES[puzzleIndex].words[level]} ✓  ·  ${breakdown[level]} moves`);
+ stageTimeout=setTimeout(()=>{
+  winPositions=[];level++;transition=false;$('toast').classList.remove('show');
+  if(level===PUZZLES[puzzleIndex].words.length){finished=true;showResults();}
+  else {resumeTime();updateUI();check();}
+ },1000);
+}
+function showResults(){
+ const p=PUZZLES[puzzleIndex];
+ const finalSeconds=Math.floor(timeMs()/1000),score=moves;lastRunScore=score;
+ savePB();saveScorePB(score,finalSeconds);updateUI();
+ $('target').textContent='COMPLETE';$('dayLabel').textContent=`${p.day.toUpperCase()} · FINISHED`;
+ $('wordCount').textContent=`${p.words.length} / ${p.words.length}`;
+ $('resultTitle').textContent=`${p.words.length} WORDS FOUND`;
+ const tier=moves<=p.excellent?'Excellent':moves<=p.good?'Good':moves<=p.average?'Average':'Finished';
+ $('finalMoves').textContent=moves;$('finalTime').textContent=clockText(finalSeconds);
+ $('finalScore').textContent=score.toLocaleString('en-GB');
+ const bestScore=getScorePB();
+ $('scoreBest').textContent=`Move-count PB: ${getPB()??moves} · fastest recorded at its PB: ${bestScore ? clockText(bestScore.seconds) : clockText(finalSeconds)}`;
+ $('finalTier').textContent=tier;
+ const gap=moves-p.reference;
+ $('minimumScore').textContent=p.reference+' moves';
+ $('minimumGap').textContent=gap===0?'PERFECT!':gap<0?`CHECK: ${-gap} UNDER`:`+${gap} ${gap===1?'move':'moves'}`;
+ $('minimumGap').style.color=gap<=0?'#a2ecd2':'#c6dcf9';
+ $('minimumExplanation').textContent=gap<0?'Your score appears below the computed minimum. Please report this result so we can check the solver.':
+   gap===0?'You achieved the mathematically proven minimum. No shorter solution exists under these rules.':
+   `The mathematically proven minimum is ${gap} ${gap===1?'move':'moves'} below your result. The solution remains hidden.`;
+ $('finalDetail').textContent=`${p.day} · ${p.words.join(' · ')} | ${breakdown.join(' + ')} moves.`;
+ $('results').style.display='block';updateFeedback();
+}
+function horizontal(delta){
+ if(!gameRunning||transition||finished)return;
+ cursor=mod(cursor+delta,n());
+ // Phase stored as an unwrapped value; avoids a jump at index zero.
+ targetHorizontalPhase+=(-delta*hs());
+ verticalRaw=closest(wheel[cursor],verticalRaw);
+ targetVerticalPhase=-verticalRaw*verticalStep;
+ moves++;breakdown[level]++;updateUI();
+}
+function vertical(delta){
+ if(!gameRunning||transition||finished)return;
+ verticalRaw+=delta;
+ targetVerticalPhase=-verticalRaw*verticalStep;
+ wheel[cursor]=mod(wheel[cursor]+delta,26);
+ // Opposite position receives EXACTLY the same alphabetic step.
+ const opposite=(cursor+n()/2)%n();wheel[opposite]=mod(wheel[opposite]+delta,26);
+ moves++;breakdown[level]++;updateUI();check();
+}
+function move(dir){if(dir==='left')horizontal(-1);if(dir==='right')horizontal(1);
+ if(dir==='up')vertical(-1);if(dir==='down')vertical(1);}
+window.addEventListener('keydown',e=>{
+ const dirs={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down'};
+ if(dirs[e.key]){e.preventDefault();move(dirs[e.key]);}
+});
+for(const btn of document.querySelectorAll('[data-dir]'))btn.addEventListener('click',()=>move(btn.dataset.dir));
+$('reset').addEventListener('click',reset);$('playAgain').addEventListener('click',reset);
+$('startRun').addEventListener('click',()=>{if(gameRunning)return;gameRunning=true;activeSince=performance.now();$('readyOverlay').hidden=true;});
+$('nextDone').addEventListener('click',()=>{puzzleIndex=(puzzleIndex+1)%PUZZLES.length;$('puzzle').value=String(puzzleIndex);reset();});
+document.querySelectorAll('[data-feel]').forEach(btn=>btn.addEventListener('click',()=>{const o=readReview();o.feel=btn.dataset.feel;o.note=$('feedbackNote').value.trim();writeReview(o);updateFeedback();}));
+$('saveFeel').addEventListener('click',saveReview);
+$('copyFeedback').addEventListener('click',()=>{saveReview();copyAllNotes();});
+$('next').addEventListener('click',()=>{puzzleIndex=(puzzleIndex+1)%PUZZLES.length;$('puzzle').value=String(puzzleIndex);reset();});
+$('puzzle').addEventListener('change',e=>{puzzleIndex=Number(e.target.value);reset();});
+function project(x,y,z,cx,cy){let s=perspective/(perspective+z);return{x:cx+x*s,y:cy+y*s,s};}
+function ring(points,alpha){ctx.save();ctx.strokeStyle=`rgba(123,190,232,${alpha})`;ctx.lineWidth=1.3;
+ ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();ctx.restore();}
+function drawLetter(item,frontScale){
+ const alpha=(item.back?.34:.43+.57*item.frontness)*(item.opacity??1);
+ const fs=item.back?Math.max(16,item.font*item.scale*.87):item.font*item.scale*(.85+frontScale*item.frontness);
+ ctx.save();ctx.translate(item.x,item.y);
+ if(item.back && mirrorRear)ctx.scale(-1,1);
+ ctx.font=`bold ${fs}px Arial,Helvetica,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+ const isVert=item.kind==='vertical';
+ ctx.shadowBlur=item.win?26:(item.back?7:12);
+ ctx.shadowColor=item.win?'rgba(110,255,180,.88)':isVert?'rgba(255,178,91,.54)':'rgba(82,181,252,.60)';
+ ctx.lineWidth=Math.max(1,fs*.035);
+ ctx.strokeStyle=item.win?'rgba(180,255,212,.5)':isVert?'rgba(255,180,116,.17)':'rgba(155,228,255,.14)';
+ ctx.fillStyle=item.win?`rgba(189,255,212,${alpha})`:
+   isVert?`rgba(255,193,123,${alpha})`:
+   item.back?`rgba(146,187,227,${alpha})`:`rgba(135,219,255,${alpha})`;
+ ctx.strokeText(item.ch,0,0);ctx.fillText(item.ch,0,0);ctx.restore();
+}
+function circle(x,y,r,fill,stroke){ctx.beginPath();ctx.arc(x,y,r,0,TWO);if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1.6;ctx.stroke();}}
+function render(t){
+ refreshClock();
+ const dt=Math.min(55,t-lastFrame);lastFrame=t;
+ const easing=1-Math.exp(-dt/82);
+ horizontalPhase+=(targetHorizontalPhase-horizontalPhase)*easing;
+ verticalPhase+=(targetVerticalPhase-verticalPhase)*easing;
+ if(Math.abs(targetHorizontalPhase-horizontalPhase)<.00006)horizontalPhase=targetHorizontalPhase;
+ if(Math.abs(targetVerticalPhase-verticalPhase)<.00006)verticalPhase=targetVerticalPhase;
+ const w=width,h=height,wide=w/h>1.15;
+ const R=Math.min(wide?269:242,w*.37,h*(wide?.35:.30));
+ const V=Math.min(172,R*(wide?.71:.90),h*(wide?.26:.24));
+ const cx=w*.5,cy=h*(wide?.49:.51)+4;
+ const front=project(0,R*Math.sin(tilt),-R*Math.cos(tilt),cx,cy);
+ const crossingY=front.y,scaleText=Math.min(1.1,Math.max(.72,R/230));
+ ctx.clearRect(0,0,w,h);
+ const shade=ctx.createLinearGradient(0,h*.15,0,h);shade.addColorStop(0,'rgba(85,140,245,.075)');
+ shade.addColorStop(.56,'rgba(90,40,140,.03)');shade.addColorStop(1,'rgba(0,0,0,0)');
+ ctx.fillStyle=shade;ctx.fillRect(0,0,w,h);
+ const hring=[];for(let i=0;i<=220;i++){
+  const a=i/220*TWO,z=R*Math.sin(a),x=R*Math.cos(a);
+  hring.push(project(x,-z*Math.sin(tilt),z*Math.cos(tilt),cx,cy));
+ }ring(hring,.21);
+ const vring=[];for(let i=0;i<=90;i++){
+  const a=-Math.PI/2+((i/90)*2-1)*verticalStep*3.35;
+  vring.push(project(0,V*Math.cos(a),V*Math.sin(a),cx,crossingY));
+ }ring(vring,.23);
+ // A faint mechanical line helps reveal which rear letter shares the current axle.
+ const opposite=(cursor+n()/2)%n();
+ const angleBack=-Math.PI/2+opposite*hs()+horizontalPhase;
+ const backZ=R*Math.sin(angleBack),backX=R*Math.cos(angleBack);
+ const pBack=project(backX,-backZ*Math.sin(tilt),backZ*Math.cos(tilt),cx,cy);
+ ctx.save();ctx.setLineDash([3,8]);ctx.lineWidth=1.2;ctx.strokeStyle='rgba(255,222,130,.16)';
+ ctx.beginPath();ctx.moveTo(cx,crossingY);ctx.lineTo(pBack.x,pBack.y);ctx.stroke();ctx.restore();
+ const horizontal=[];
+ for(let i=0;i<n();i++){
+  const a=-Math.PI/2+i*hs()+horizontalPhase,z=R*Math.sin(a),x=R*Math.cos(a);
+  const depth=z*Math.cos(tilt),p=project(x,-z*Math.sin(tilt),depth,cx,cy);
+  horizontal.push({kind:'horizontal',pos:i,ch:ABC[wheel[i]],x:p.x,y:p.y,depth,scale:p.s,back:depth>0,
+   frontness:(R-depth)/(2*R),font:37*scaleText,selected:i===cursor||i===opposite,
+   win:winPositions.includes(i)});
+ }
+ horizontal.sort((a,b)=>b.depth-a.depth);
+ // Horizontal wheel is painted before the vertical one, with a small transparent
+ // intersection so the selected front vertical glyph is never a doubled letter.
+ for(const item of horizontal){
+  if(item.pos===cursor && Math.hypot(item.x-cx,item.y-crossingY)<22*scaleText)continue;
+  if(item.pos===opposite)circle(item.x,item.y,23*scaleText,null,'rgba(255,218,143,.34)');
+  drawLetter(item,.27);
+ }
+ // The selected vertical glyph matches the rendered size of the two adjacent
+ // foreground horizontal letters. Other vertical letters use the original
+ // compact Factory 3 size, leaving space to read the horizontal ring.
+ const flanking = horizontal.filter(item => item.pos === mod(cursor-1,n()) || item.pos === mod(cursor+1,n()));
+ const flankSize = flanking.reduce((sum,item) =>
+   sum + item.font*item.scale*(.85+.27*item.frontness),0)/Math.max(1,flanking.length);
+ const vert=[];
+ const centerIndex=-verticalPhase/verticalStep;
+ for(let absolute=Math.floor(centerIndex)-4;absolute<=Math.ceil(centerIndex)+4;absolute++){
+  const offset=absolute-centerIndex,distance=Math.abs(offset);if(distance>3.46)continue;
+  const a=-Math.PI/2+offset*verticalStep,z=V*Math.sin(a),y=V*Math.cos(a),p=project(0,y,z,cx,crossingY);
+  vert.push({kind:'vertical',ch:ABC[mod(absolute,26)],x:p.x,y:p.y,depth:z,scale:p.s,back:false,
+    frontness:Math.max(.3,1-distance*.18),font:distance<.49 ? flankSize/(p.s*(.85+.17*Math.max(.3,1-distance*.18))) : 30*scaleText,selected:distance<.49,
+    opacity:Math.max(0,Math.min(1,(3.46-distance)/.5))});
+ }
+ vert.sort((a,b)=>b.depth-a.depth);
+ for(const item of vert)drawLetter(item,.17);
+ circle(cx,crossingY,34*scaleText,null,'rgba(255,190,115,.55)');
+ requestAnimationFrame(render);
+}
+// Expose read-only game state for local automated browser tests only.
+window.__wheelTest={getState:()=>wheel.map(i=>ABC[i]).join(''),getCursor:()=>cursor,
+ getWords:()=>PUZZLES[puzzleIndex].words.slice(),getMirrorRear:()=>mirrorRear,getReference:()=>PUZZLES[puzzleIndex].reference,getPuzzle:()=>PUZZLES[puzzleIndex].name,getLevel:()=>level,getMoves:()=>moves,getTime:()=>timeMs(),getScore:()=>lastRunScore,
+ move,reset,start:()=>{if(!gameRunning){gameRunning=true;activeSince=performance.now();$('readyOverlay').hidden=true;}},findCurrent:()=>findWord(PUZZLES[puzzleIndex].words[Math.min(level,PUZZLES[puzzleIndex].words.length-1)])};
+reset();requestAnimationFrame(render);
+})();
+</script>
+</body>
+</html>
