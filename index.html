@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>WIRLOX · Puzzle Bank 01 · Factory 5.2</title>
+<title>WIRLOX · Puzzle Banks 01–02 · Factory 5.3</title>
 <style>
   :root{color-scheme:dark;--blue:#8bd4ff;--warm:#ffe69a;--muted:#99a8c4;--panel:rgba(8,15,34,.72)}
   *{box-sizing:border-box}
@@ -416,7 +416,7 @@ canvas#wheel{transform:translateY(65px)}
 <canvas id="wheel"></canvas>
 <div id="focusUI" aria-label="Current puzzle and target words">
   <div class="focusNav"><div class="focusBrand">WIRLOX</div><div class="focusNavRight">
-    <div class="focusPuzzle" id="focusPuzzle">PUZZLE 01 / 07</div>
+    <div class="focusPuzzle" id="focusPuzzle">PUZZLE 01 / 14</div>
     <div class="focusMoves">MOVES <strong id="focusMoves">0</strong></div>
     <button id="focusMenu" type="button" aria-haspopup="dialog" aria-expanded="false">☰ &nbsp; MENU</button>
   </div></div>
@@ -433,9 +433,9 @@ canvas#wheel{transform:translateY(65px)}
 </div>
 <div class="head">
  <div class="panel">
-  <h1>WIRLOX <span class="version">· FACTORY 5.2 · BANK 01</span></h1>
+  <h1>WIRLOX <span class="version">· FACTORY 5.3 · BANKS 01–02</span></h1>
   <div class="sub">← → position · ↑ ↓ change letter · opposite pair moves with it</div>
-  <div class="dayMood" id="dayMood">PUZZLE 01 / 07 · WARM-UP · 14 LETTERS</div>
+  <div class="dayMood" id="dayMood">PUZZLE 01 / 14 · WARM-UP · 14 LETTERS</div>
   <div class="statLine">Time: <strong id="timer">0:00</strong> <span class="sep">|</span> Moves: <strong id="moves">0</strong> <span class="sep">|</span> PB: <strong id="pb">—</strong> <span class="sep">|</span> Word: <strong id="wordCount">1 / 3</strong><span id="minimumHeader" hidden> <span class="sep">|</span> Perfect: <strong id="minimumHeaderScore">—</strong></span></div>
  </div>
  <div class="panel targetBox"><div class="eyebrow" id="dayLabel">PUZZLE 01 · WORD 1</div>
@@ -505,7 +505,7 @@ canvas#wheel{transform:translateY(65px)}
       <label class="rememberIntro"><input type="checkbox" id="rememberIntro">Don't show this again</label>
     </div>
     <div id="quickView" hidden>
-      <div class="eyebrow">PUZZLE BANK 01</div>
+      <div class="eyebrow">PUZZLE BANKS 01–02</div>
       <div class="splashDate" id="quickDate"></div>
       <h2 class="quickBrand" id="quickTitle">WIRLOX</h2>
       <div id="readyMode">Puzzle 01 of 7</div>
@@ -514,7 +514,7 @@ canvas#wheel{transform:translateY(65px)}
       <button id="openArchive" type="button">Archive</button>
     </div>
     <div id="archiveView" hidden>
-      <div class="eyebrow">WIRLOX · PUZZLE BANK 01</div>
+      <div class="eyebrow">WIRLOX · PUZZLE BANKS 01–02</div>
       <h2 id="archiveHeading">Archive</h2>
       <div id="archiveList"></div>
       <button id="archiveBack" type="button">← Back</button>
@@ -526,7 +526,7 @@ canvas#wheel{transform:translateY(65px)}
 (() => {
 'use strict';
 const ABC='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-const PUZZLES=[{"name":"F4-Monday","day":"Monday","mood":"Warm-up","mode":"14 letters \u00b7 3 words","start":"NTCRTYINVANRJE","words":["APPLE","PLANT","TRAIN"],"reference":20,"excellent":23,"good":28,"average":36},{"name":"F4-Tuesday","day":"Tuesday","mood":"Find the links","mode":"14 letters \u00b7 3 words","start":"REBGSIZERNRVSI","words":["MOUSE","BREAD","RIVER"],"reference":21,"excellent":24,"good":29,"average":37},{"name":"F4-Wednesday","day":"Wednesday","mood":"Plan ahead","mode":"14 letters \u00b7 3 words","start":"SWOPCDQSWBTSOJ","words":["BRUSH","STONE","GHOST"],"reference":22,"excellent":25,"good":30,"average":38},{"name":"F4-Thursday","day":"Thursday","mood":"Hidden leverage","mode":"14 letters \u00b7 3 words","start":"MCNNXHQRAKMIPX","words":["CLOUD","TRAIN","FLAME"],"reference":21,"excellent":24,"good":29,"average":37},{"name":"F4-Friday","day":"Friday","mood":"The challenge","mode":"14 letters \u00b7 3 words","start":"PEAMFPAPGIDKBX","words":["GRAPE","FIELD","CANDY"],"reference":26,"excellent":29,"good":34,"average":42},{"name":"F4-Saturday","day":"Saturday","mood":"Expert wheel","mode":"14 letters \u00b7 3 words","start":"RIBLJDSEARIGNF","words":["SHINE","BRICK","DREAM"],"reference":26,"excellent":29,"good":34,"average":42},{"name":"F4-Sunday","day":"Sunday","mood":"The slow spin","mode":"14 letters \u00b7 3 words","start":"YFACHREBOZZWAT","words":["BEACH","GREEN","WATER"],"reference":23,"excellent":26,"good":31,"average":39}];
+const PUZZLES=[{"name":"F4-Monday","day":"Monday","mood":"Warm-up","mode":"14 letters \u00b7 3 words","start":"NTCRTYINVANRJE","words":["APPLE","PLANT","TRAIN"],"reference":20,"excellent":23,"good":28,"average":36},{"name":"F4-Tuesday","day":"Tuesday","mood":"Find the links","mode":"14 letters \u00b7 3 words","start":"REBGSIZERNRVSI","words":["MOUSE","BREAD","RIVER"],"reference":21,"excellent":24,"good":29,"average":37},{"name":"F4-Wednesday","day":"Wednesday","mood":"Plan ahead","mode":"14 letters \u00b7 3 words","start":"SWOPCDQSWBTSOJ","words":["BRUSH","STONE","GHOST"],"reference":22,"excellent":25,"good":30,"average":38},{"name":"F4-Thursday","day":"Thursday","mood":"Hidden leverage","mode":"14 letters \u00b7 3 words","start":"MCNNXHQRAKMIPX","words":["CLOUD","TRAIN","FLAME"],"reference":21,"excellent":24,"good":29,"average":37},{"name":"F4-Friday","day":"Friday","mood":"The challenge","mode":"14 letters \u00b7 3 words","start":"PEAMFPAPGIDKBX","words":["GRAPE","FIELD","CANDY"],"reference":26,"excellent":29,"good":34,"average":42},{"name":"F4-Saturday","day":"Saturday","mood":"Expert wheel","mode":"14 letters \u00b7 3 words","start":"RIBLJDSEARIGNF","words":["SHINE","BRICK","DREAM"],"reference":26,"excellent":29,"good":34,"average":42},{"name":"F4-Sunday","day":"Sunday","mood":"The slow spin","mode":"14 letters \u00b7 3 words","start":"YFACHREBOZZWAT","words":["BEACH","GREEN","WATER"],"reference":23,"excellent":26,"good":31,"average":39},{"name":"B02-08","day":"Puzzle 08","mood":"First connections","mode":"14 letters \u00b7 3 words","start":"QTLKGOPJSNDBTK","words":["SPEAR","PEARL","LEMON"],"reference":22,"excellent":25,"good":30,"average":38},{"name":"B02-09","day":"Puzzle 09","mood":"Finding the link","mode":"14 letters \u00b7 3 words","start":"GDAFCQOUCALBCS","words":["SCALE","CLEAR","REACH"],"reference":23,"excellent":26,"good":31,"average":39},{"name":"B02-10","day":"Puzzle 10","mood":"Across the wheel","mode":"14 letters \u00b7 3 words","start":"EMWAVLBVKMBMZF","words":["BLADE","DELTA","ATLAS"],"reference":23,"excellent":26,"good":31,"average":39},{"name":"B02-11","day":"Puzzle 11","mood":"Look twice","mode":"14 letters \u00b7 3 words","start":"RTHIOJFFUIIICM","words":["NIGHT","THING","GIANT"],"reference":24,"excellent":27,"good":32,"average":40},{"name":"B02-12","day":"Puzzle 12","mood":"The crossover","mode":"14 letters \u00b7 3 words","start":"DTJGSRRSDIDDUU","words":["CIDER","DRIFT","FROST"],"reference":24,"excellent":27,"good":32,"average":40},{"name":"B02-13","day":"Puzzle 13","mood":"Hidden leverage","mode":"14 letters \u00b7 3 words","start":"TLISJLUDSIONTT","words":["TULIP","PILOT","OLIVE"],"reference":25,"excellent":28,"good":33,"average":41},{"name":"B02-14","day":"Puzzle 14","mood":"The challenge","mode":"14 letters \u00b7 3 words","start":"RLWNDTBCMMPAIC","words":["CROWN","WAGON","NOBLE"],"reference":26,"excellent":29,"good":34,"average":42}];
 const puzzleLabel = i => `Puzzle ${String(i+1).padStart(2,'0')}`;
 const puzzleTag = i => `PUZZLE ${String(i+1).padStart(2,'0')} / ${String(PUZZLES.length).padStart(2,'0')}`;
 const $=id=>document.getElementById(id);
@@ -560,7 +560,7 @@ function readReview(){const key=reviewKey();if(sessionReview[key])return session
 function writeReview(o){const key=reviewKey();sessionReview[key]=o;try{localStorage.setItem(key,JSON.stringify(o));}catch(e){}}
 function updateFeedback(){const obj=readReview();$('feedbackNote').value=obj.note||'';document.querySelectorAll('[data-feel]').forEach(b=>b.classList.toggle('selected',b.dataset.feel===obj.feel));$('copyStatus').textContent='';$('copyFallback').style.display='none';}
 function saveReview(){const old=readReview();writeReview({feel:old.feel,note:$('feedbackNote').value.trim()});$('copyStatus').textContent='Feedback saved locally for this puzzle.';}
-function bankNotes(){return ['WIRLOX — Puzzle Bank 01',...PUZZLES.map((p,i)=>{
+function bankNotes(){return ['WIRLOX — Puzzle Banks 01–02',...PUZZLES.map((p,i)=>{
  const stored=sessionPB[p.name];let best=stored??null;
  if(best===null){try{best=Number(localStorage.getItem('wirlox-factory4-'+p.name))||null;}catch(e){}}
  const key='wirlox-factory4-review-'+p.name;let r=sessionReview[key]||null;
@@ -609,7 +609,7 @@ function updateUI(){
 // A session that has already shown the instructions uses the short ready screen
 // for restarts; a fresh visit uses the persistent preference.
 const INTRO_KEY='wirlox-intro-dismissed-v1';
-// Date is the visitor's current local calendar date; the seven puzzles remain
+// Date is the visitor's current local calendar date; the archived puzzles remain
 // a non-daily archive and are NOT automatically rotated by date.
 function setSplashDate(){
  const today=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
