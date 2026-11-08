@@ -1,9 +1,20 @@
+
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "wirlox",
-  "compatibility_date": "2026-11-07",
+  "compatibility_date": "2026-11-08",
   "workers_dev": true,
+  "main": "./worker.js",
   "assets": {
-    "directory": "./public/"
-  }
+    "directory": "./public/",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "wirlox-data",
+      "database_id": "b3fa33a5-506a-4731-af7f-773f88b72baf"
+    }
+  ]
 }
