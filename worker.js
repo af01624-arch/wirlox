@@ -1,8 +1,9 @@
-// WIRLOX Daily + D1. The public repo includes only this logic, never private seed SQL.
+// WIRLOX Factory 5.10.5 — Daily schedule (public layouts and existing game rules unchanged).
+// The public repo includes only code; private puzzle seeds and optimal routes live in D1.
 // Future puzzles are stored in D1 and are released by Europe/Madrid calendar date.
 const TZ = 'Europe/Madrid';
 const FIRST_DAILY = 29;
-const LAST_DAILY = 35;
+const LAST_DAILY = 56;
 const MAX_TRACE = 700;
 const UUID_RE = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const NO_CACHE = { 'Cache-Control': 'private, no-store, max-age=0', 'X-Content-Type-Options': 'nosniff' };
@@ -17,11 +18,13 @@ function daysAfter(dateYmd, startYmd) {
   return Math.round((parse(dateYmd)-parse(startYmd))/86400000);
 }
 function validStart(s) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s+'T00:00:00Z'));
+  return typeof s==='string' && /^\d{4}-\d{2}-\d{2}$/.test(s) &&
+    !Number.isNaN(Date.parse(s+'T00:00:00Z')) &&
+    new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
 }
-function toPublicPuzzle(p) {
+function toPublicPuzzle(p,publicNumber=p.number) {
   return {
-    number:p.number, name:p.puzzle_key, day:`Puzzle ${p.number}`, mood:p.mood,
+    number:publicNumber, name:p.puzzle_key, day:`Puzzle ${publicNumber}`, mood:p.mood,
     mode:'14 letters · 3 words', start:p.starting_wheel,
     words:[p.word1,p.word2,p.word3], reference:p.optimum,
     excellent:p.excellent, good:p.good, average:p.average,
@@ -32,29 +35,44 @@ async function getLaunchDate(db) {
   const setting=await db.prepare("SELECT value FROM settings WHERE key='daily_start_date'").first();
   return setting?.value ?? 'PAUSED';
 }
-function unlocked(row, currentDate, startDate) {
-  if(row.publication!=='daily')return true;
-  if(!validStart(startDate))return false;
-  return row.number <= FIRST_DAILY+daysAfter(currentDate,startDate) && row.number <= LAST_DAILY;
+// Daily slot numbers (29–56) are public identities. The underlying source
+// puzzle can be swapped BEFORE its slot is released; released slots are locked.
+function unlocked(row,currentDate,startDate,publicNumber=row.number) {
+  if(row.publication!=='daily')return row.publication==='archive';
+  return validStart(startDate) && publicNumber>=FIRST_DAILY && publicNumber<=LAST_DAILY &&
+    daysAfter(currentDate,startDate)>=publicNumber-FIRST_DAILY;
 }
-async function state(db) {
-  const date=todayInMadrid(),start=await getLaunchDate(db);
-  const rows=(await db.prepare('SELECT * FROM puzzles ORDER BY number').all()).results;
-  const publishedArchive=rows.filter(x=>x.publication==='archive' && x.number>=15).map(toPublicPuzzle);
-  const releasedDaily=rows.filter(x=>x.publication==='daily' && unlocked(x,date,start)).map(toPublicPuzzle);
-  let daily=null,status='not_launched';
+async function resolvePublicPuzzle(db,number){
+  if(number<FIRST_DAILY)
+    return db.prepare("SELECT * FROM puzzles WHERE publication='archive' AND number=?").bind(number).first();
+  return db.prepare(`SELECT p.* FROM daily_schedule AS s
+      JOIN puzzles AS p ON p.number=s.puzzle_number
+      WHERE s.slot_number=? AND p.publication='daily'`).bind(number).first();
+}
+async function state(db,at=new Date()) {
+  const date=todayInMadrid(at),start=await getLaunchDate(db);
+  const archived=(await db.prepare("SELECT * FROM puzzles WHERE publication='archive' AND number>=15 ORDER BY number").all()).results;
+  const archive=archived.map(p=>toPublicPuzzle(p));
+  let daily=null,status='not_launched',releasedDaily=[];
   if(validStart(start)) {
     const offset=daysAfter(date,start);
-    if(offset<0)status='upcoming';
-    else if(offset>LAST_DAILY-FIRST_DAILY)status='finished';
+    if(offset<0) status='upcoming';
     else {
-      status='live';
-      const num=FIRST_DAILY+offset;
-      daily=toPublicPuzzle(rows.find(x=>x.number===num));
+      status=offset>LAST_DAILY-FIRST_DAILY?'finished':'live';
+      const lastSlot=Math.min(LAST_DAILY,FIRST_DAILY+offset);
+      const released=(await db.prepare(`SELECT s.slot_number,p.* FROM daily_schedule AS s
+        JOIN puzzles AS p ON p.number=s.puzzle_number
+        WHERE s.slot_number BETWEEN ? AND ? AND p.publication='daily'
+        ORDER BY s.slot_number`).bind(FIRST_DAILY,lastSlot).all()).results;
+      if(released.length!==lastSlot-FIRST_DAILY+1 ||
+         released.some((p,i)=>p.slot_number!==FIRST_DAILY+i))
+         throw Error('Daily schedule is incomplete');
+      releasedDaily=released.map(p=>toPublicPuzzle(p,p.slot_number));
+      if(status==='live') daily=releasedDaily[releasedDaily.length-1];
     }
   }
-  return {timezone:TZ, date, status, daily, archive:publishedArchive,
-    releasedDaily, dailyStart:validStart(start)?start:null};
+  return {timezone:TZ,date,status,daily,archive,releasedDaily,
+    dailyStart:validStart(start)?start:null};
 }
 const ABC='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const mod=(x,n)=>(x%n+n)%n;
@@ -95,9 +113,9 @@ async function attempt(request,db){
   if(!Number.isInteger(puzzleNumber)||puzzleNumber<1||puzzleNumber>LAST_DAILY||
     typeof playerId!=='string'||!UUID_RE.test(playerId)||typeof steps!=='string'||steps.length>MAX_TRACE||
     !Number.isInteger(elapsed)||elapsed<0||elapsed>86400*14){return json({error:'Invalid submission'},422);}
-  const p=await db.prepare('SELECT * FROM puzzles WHERE number=?').bind(puzzleNumber).first();
+  const p=await resolvePublicPuzzle(db,puzzleNumber);
   const date=todayInMadrid(),launch=await getLaunchDate(db);
-  if(!p||!unlocked(p,date,launch))return json({error:'Puzzle not released'},404);
+  if(!p||!unlocked(p,date,launch,puzzleNumber))return json({error:'Puzzle not released'},404);
   if(!validateTrace(p,steps))return json({error:'Completion cannot be verified'},422);
   const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(steps)))).map(x=>x.toString(16).padStart(2,'0')).join('');
   const write=await db.prepare('INSERT OR IGNORE INTO first_attempts (puzzle_number, anonymous_player_id, moves, elapsed_seconds, trace_sha256) VALUES (?,?,?,?,?)')
@@ -105,7 +123,7 @@ async function attempt(request,db){
   const agg=await db.prepare('SELECT COUNT(*) as count, ROUND(AVG(moves),1) as average FROM first_attempts WHERE puzzle_number=?').bind(puzzleNumber).first();
   // Only a verified completed play can obtain an optimal route.
   // Routes live exclusively in D1, not in this public Worker or game assets.
-  const sol=await db.prepare('SELECT route FROM solution_routes WHERE puzzle_number=?').bind(puzzleNumber).first();
+  const sol=await db.prepare('SELECT route FROM solution_routes WHERE puzzle_number=?').bind(p.number).first();
   const optimalRoute=sol?.route;
   if(typeof optimalRoute!=='string'||optimalRoute.length!==p.optimum||!validateTrace(p,optimalRoute))
     throw Error('Missing or invalid private route for puzzle '+puzzleNumber);
@@ -211,11 +229,13 @@ async function savePuzzleFeedback(request,db,isPrivate){
      typeof feel!=='string'||!['','Clever','Straightforward','Grindy'].includes(feel)||
      typeof note!=='string'||note.length>240||/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(note))
     return json({error:'Invalid feedback'},422);
-  const puzzle=await db.prepare('SELECT number, publication FROM puzzles WHERE number=?').bind(number).first();
+  const puzzle=isPrivate
+    ?await db.prepare('SELECT number, publication FROM puzzles WHERE number=?').bind(number).first()
+    :await resolvePublicPuzzle(db,number);
   if(!puzzle)return json({error:'Puzzle not found'},404);
   if(!isPrivate){
     const launch=await getLaunchDate(db);
-    if(!unlocked(puzzle,todayInMadrid(),launch))return json({error:'Puzzle not released'},404);
+    if(!unlocked(puzzle,todayInMadrid(),launch,number))return json({error:'Puzzle not released'},404);
     const completed=await db.prepare('SELECT 1 AS found FROM first_attempts WHERE puzzle_number=? AND anonymous_player_id=?')
        .bind(number,playerId).first();
     if(!completed)return json({error:'Verified completion required'},409);
@@ -229,10 +249,96 @@ async function savePuzzleFeedback(request,db,isPrivate){
   return json({saved:true,puzzleNumber:number});
 }
 
+
+// Private-only daily schedule administration. This page is separate from the
+// game and does not alter any established WIRLOX layout or CSS.
+const SCHEDULE_HEADERS={...FACTORY_HEADERS,'Content-Type':'text/html; charset=utf-8'};
+const SCHEDULE_PAGE=`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>WIRLOX · Daily Schedule · 5.10.5</title>
+<style>html{color-scheme:dark}body{font:15px system-ui,-apple-system,sans-serif;background:#0a1120;color:#e2edff;max-width:790px;margin:25px auto;padding:0 18px}h1{font-size:24px;letter-spacing:.09em}p,small{color:#b1c5dc;line-height:1.55}section{border:1px solid #38516f;border-radius:13px;background:#15233c;padding:18px;margin:16px 0}label{display:block;margin:15px 0 5px}select,input,button{font:inherit;color:#e6f3ff;border:1px solid #6686a7;border-radius:7px;background:#101d33;padding:10px;max-width:100%}select,input{width:100%;box-sizing:border-box}button{background:#224867;cursor:pointer;margin:12px 7px 0 0}button:disabled{opacity:.5;cursor:default}ul{padding-left:23px;line-height:1.7}li{margin:3px 0}#message{min-height:1.5em}a{color:#a9dfff}</style></head><body><h1>WIRLOX · PRIVATE DAILY SCHEDULE</h1><p>Factory 5.10.5 · Protected planning only. The public game is unchanged. <a href="/factory">Back to private puzzles</a></p><p id="message" role="status">Loading schedule…</p><section><h2>Launch</h2><p id="launchStatus"></p><label for="startDate">First daily release (Madrid calendar date)</label><input id="startDate" type="date"><button id="startButton">Schedule launch</button><button id="pauseButton" hidden>Cancel future launch</button><small>Activation requires confirmation. No puzzle goes live while PAUSED. Once the first day has begun, the launch date is locked.</small></section><section><h2>Replace a future puzzle</h2><label for="slot">Daily slot</label><select id="slot"></select><label for="replacement">Replace with</label><select id="replacement"></select><button id="replaceButton">Apply replacement / swap</button><small>An unused reserve replaces the slot and leaves the original in reserve. Choosing a different future slot swaps those two puzzles. Already released slots cannot be changed.</small></section><section><h2>Scheduled puzzles</h2><ul id="schedule"></ul><small>This list is private. It never exposes unreleased puzzles to the public archive.</small></section>
+<script>(()=>{'use strict';const $=id=>document.getElementById(id);let data=null;const endpoint='/api/factory/schedule';const msg=t=>{$('message').textContent=t};
+async function call(path,method='GET',body){const r=await fetch(endpoint+path,{method,credentials:'same-origin',cache:'no-store',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});if(r.status===401){location.replace('/factory');throw Error('Session expired');}const j=await r.json();if(!r.ok)throw Error(j.error||'Request failed');return j;}
+const opt=(sel,value,text)=>{const o=document.createElement('option');o.value=value;o.textContent=text;sel.append(o)};
+function replacements(){if(!data)return;const slot=Number($('slot').value);$('replacement').replaceChildren();for(const p of data.reserves)opt($('replacement'),p.number,\`Reserve #\${p.number} · \${p.words.join(' / ')}\`);for(const s of data.slots){if(s.slot!==slot && !s.locked)opt($('replacement'),s.puzzleNumber,\`Swap with slot \${s.slot} · \${s.words.join(' / ')}\`);}$('replaceButton').disabled=!$('replacement').options.length;}
+async function refresh(){data=await call('');$('launchStatus').textContent=data.dailyStart?\`Scheduled for \${data.dailyStart} · \${data.status}\`:'PAUSED — no public Daily releases';$('startButton').disabled=data.status!=='not_launched';$('startDate').disabled=data.status!=='not_launched';$('pauseButton').hidden=data.status!=='upcoming';$('slot').replaceChildren();$('schedule').replaceChildren();for(const s of data.slots){if(!s.locked)opt($('slot'),s.slot,\`Puzzle \${s.slot} · \${s.words.join(' / ')}\`);const li=document.createElement('li');li.textContent=\`\${s.slot}: \${s.words.join(' / ')} · source #\${s.puzzleNumber}\${s.locked?' · RELEASED':''}\`;$('schedule').append(li);}replacements();msg('Schedule loaded · '+data.slots.length+' slots');}
+$('slot').addEventListener('change',replacements);
+$('replaceButton').addEventListener('click',async()=>{const slot=Number($('slot').value),puzzleNumber=Number($('replacement').value);if(!slot||!puzzleNumber||!confirm(\`Change future Daily puzzle \${slot} to source #\${puzzleNumber}?\`))return;try{await call('/replace','POST',{slot,puzzleNumber});await refresh();msg('Future puzzle updated. No released puzzles were changed.');}catch(e){msg(e.message);}});
+$('startButton').addEventListener('click',async()=>{const startDate=$('startDate').value;if(!startDate)return msg('Choose a launch date.');if(!confirm(\`Start publishing WIRLOX Daily at Madrid midnight on \${startDate}?\`))return;try{await call('/launch','POST',{startDate,confirmation:'START DAILY'});await refresh();msg('Daily launch scheduled.');}catch(e){msg(e.message);}});
+$('pauseButton').addEventListener('click',async()=>{if(!confirm('Cancel the UPCOMING launch and return to PAUSED?'))return;try{await call('/pause','POST',{confirmation:'PAUSE DAILY'});await refresh();msg('Future launch cancelled. Daily is PAUSED.');}catch(e){msg(e.message);}});
+refresh().catch(e=>msg(e.message));})();</script></body></html>`;
+async function scheduleAdmin(db,at=new Date()){
+  const today=todayInMadrid(at),start=await getLaunchDate(db);
+  const offset=validStart(start)?daysAfter(today,start):-1;
+  const status=!validStart(start)?'not_launched':offset<0?'upcoming':offset>27?'finished':'live';
+  const scheduled=(await db.prepare(`SELECT s.slot_number,s.puzzle_number,p.word1,p.word2,p.word3,p.mood
+    FROM daily_schedule s JOIN puzzles p ON p.number=s.puzzle_number
+    ORDER BY s.slot_number`).all()).results;
+  if(scheduled.length!==28||scheduled.some((s,i)=>s.slot_number!==29+i))throw Error('Daily schedule incomplete');
+  const rows=(await db.prepare(`SELECT number,word1,word2,word3,mood FROM puzzles
+    WHERE publication='daily' AND number NOT IN
+    (SELECT puzzle_number FROM daily_schedule) ORDER BY number`).all()).results;
+  return {today,status,dailyStart:validStart(start)?start:null,
+    slots:scheduled.map(s=>({slot:s.slot_number,puzzleNumber:s.puzzle_number,mood:s.mood,
+      words:[s.word1,s.word2,s.word3],locked:status==='finished'||(status==='live'&&s.slot_number<=29+offset)})),
+    reserves:rows.map(p=>({number:p.number,mood:p.mood,words:[p.word1,p.word2,p.word3]}))};
+}
+async function scheduleMutation(request,db,kind){
+  if(request.headers.get('Origin')!==new URL(request.url).origin)return json({error:'Not allowed'},403);
+  if(request.headers.get('content-type')?.split(';')[0].trim()!=='application/json')return json({error:'JSON required'},415);
+  if(Number(request.headers.get('content-length')||0)>1024)return json({error:'Too large'},413);
+  let v;try{const raw=await request.text();if(raw.length>1024)return json({error:'Too large'},413);v=JSON.parse(raw);}catch{return json({error:'Invalid JSON'},400);}
+  const today=todayInMadrid(),start=await getLaunchDate(db);
+  if(kind==='launch'){
+    if(start!=='PAUSED')return json({error:'Launch is already scheduled or active'},409);
+    if(v?.confirmation!=='START DAILY'||!validStart(v?.startDate)||v.startDate<=today)
+      return json({error:'Choose a future Madrid date and confirm launch'},422);
+    const check=await scheduleAdmin(db);
+    if(check.slots.length!==28)return json({error:'Schedule incomplete'},503);
+    await db.prepare("UPDATE settings SET value=? WHERE key='daily_start_date' AND value='PAUSED'").bind(v.startDate).run();
+    return json({ok:true,status:'upcoming',dailyStart:v.startDate});
+  }
+  if(kind==='pause'){
+    if(v?.confirmation!=='PAUSE DAILY'||!validStart(start)||start<=today)
+      return json({error:'Only an upcoming launch may be cancelled'},409);
+    await db.prepare("UPDATE settings SET value='PAUSED' WHERE key='daily_start_date' AND value=?").bind(start).run();
+    return json({ok:true,status:'not_launched'});
+  }
+  if(kind!=='replace')return json({error:'Not found'},404);
+  const slot=v?.slot,number=v?.puzzleNumber;
+  if(!Number.isInteger(slot)||slot<FIRST_DAILY||slot>LAST_DAILY||
+     !Number.isInteger(number)||number<FIRST_DAILY)
+    return json({error:'Invalid slot or candidate'},422);
+  const schedule=await scheduleAdmin(db);
+  const target=schedule.slots.find(s=>s.slot===slot);
+  if(!target||target.locked)return json({error:'That puzzle is already released'},409);
+  if(target.puzzleNumber===number)return json({error:'Already in that slot'},409);
+  const candidate=await db.prepare("SELECT number FROM puzzles WHERE number=? AND publication='daily'").bind(number).first();
+  if(!candidate)return json({error:'Candidate is not an unreleased daily puzzle'},422);
+  const other=schedule.slots.find(s=>s.puzzleNumber===number);
+  if(other?.locked)return json({error:'Cannot move an already released puzzle'},409);
+  if(other){
+    // 3 updates in a single D1 transaction avoid an intermediate UNIQUE clash.
+    await db.batch([
+      db.prepare('UPDATE daily_schedule SET puzzle_number=NULL WHERE slot_number=? AND puzzle_number=?').bind(slot,target.puzzleNumber),
+      db.prepare('UPDATE daily_schedule SET puzzle_number=? WHERE slot_number=? AND puzzle_number=?').bind(target.puzzleNumber,other.slot,number),
+      db.prepare('UPDATE daily_schedule SET puzzle_number=? WHERE slot_number=? AND puzzle_number IS NULL').bind(number,slot)
+    ]);
+  }else{
+    await db.prepare('UPDATE daily_schedule SET puzzle_number=? WHERE slot_number=? AND puzzle_number=?')
+      .bind(number,slot,target.puzzleNumber).run();
+  }
+  const done=await db.prepare('SELECT puzzle_number FROM daily_schedule WHERE slot_number=?').bind(slot).first();
+  if(done?.puzzle_number!==number)return json({error:'Schedule changed concurrently; refresh and retry'},409);
+  return json({ok:true,slot,puzzleNumber:number,swappedWith:other?.slot??null});
+}
+
 export default {
   async fetch(request,env){
     const url=new URL(request.url);
     if((url.pathname==='/factory'||url.pathname==='/factory/')&&request.method==='GET')return serveFactory(request,env);
+    if((url.pathname==='/factory/schedule'||url.pathname==='/factory/schedule/')&&request.method==='GET'){
+      if(!await hasFactorySession(request,env))return Response.redirect(new URL('/factory',url),302);
+      return new Response(SCHEDULE_PAGE,{headers:SCHEDULE_HEADERS});
+    }
     if(!url.pathname.startsWith('/api/'))return env.ASSETS.fetch(request);
     try{
       if(url.pathname==='/api/factory/login'&&request.method==='POST')return loginFactory(request,env);
@@ -242,6 +348,10 @@ export default {
         if(url.pathname==='/api/factory/puzzles'&&request.method==='GET')return privateFactoryPuzzles(env.DB);
         if(url.pathname==='/api/factory/attempt'&&request.method==='POST')return privateFactoryAttempt(request,env.DB);
         if(url.pathname==='/api/factory/feedback'&&request.method==='POST')return savePuzzleFeedback(request,env.DB,true);
+        if(url.pathname==='/api/factory/schedule'&&request.method==='GET')return json(await scheduleAdmin(env.DB));
+        if(url.pathname==='/api/factory/schedule/replace'&&request.method==='POST')return scheduleMutation(request,env.DB,'replace');
+        if(url.pathname==='/api/factory/schedule/launch'&&request.method==='POST')return scheduleMutation(request,env.DB,'launch');
+        if(url.pathname==='/api/factory/schedule/pause'&&request.method==='POST')return scheduleMutation(request,env.DB,'pause');
         return json({error:'Not found'},404);
       }
       if(!env.DB)return json({error:'D1 binding not configured'},503);
@@ -257,4 +367,4 @@ export default {
   }
 };
 // For local tests only; not used as Worker exports.
-export {todayInMadrid,daysAfter,validateTrace,validStart};
+export {todayInMadrid,daysAfter,validateTrace,validStart,state,resolvePublicPuzzle,unlocked,scheduleAdmin,scheduleMutation};
