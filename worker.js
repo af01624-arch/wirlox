@@ -114,7 +114,7 @@ async function attempt(request,db){
     optimalRoute});
 }
 
-// Factory 5.10.2 private gate. The access key is a Cloudflare Worker SECRET,
+// Factory 5.10.3 private gate. The access key is a Cloudflare Worker SECRET,
 // never a source-code constant. A signed HttpOnly session lasts 14 days.
 const FACTORY_COOKIE='wirlox_factory_session';
 const FACTORY_SESSION_SECONDS=14*24*60*60;
@@ -163,8 +163,11 @@ async function loginFactory(request,env){
 async function serveFactory(request,env){
  if(!strongFactoryKey(env))return new Response('Factory access not yet configured.',{status:503,headers:FACTORY_HEADERS});
  if(!await hasFactorySession(request,env))return new Response(FACTORY_LOGIN_HTML,{headers:{...FACTORY_HEADERS,'Content-Type':'text/html; charset=utf-8'}});
- const url=new URL(request.url);url.pathname='/index.html';url.search='';
+ // Fetch the root asset, not /index.html: Cloudflare redirects /index.html
+ // to /, which would otherwise navigate the browser away from /factory.
+ const url=new URL(request.url);url.pathname='/';url.search='';
  const asset=await env.ASSETS.fetch(new Request(url,request));
+ if(!asset.ok)return new Response('Private Factory game unavailable.',{status:503,headers:FACTORY_HEADERS});
  const headers=new Headers(asset.headers);
  Object.entries(FACTORY_HEADERS).forEach(([k,v])=>headers.set(k,v));
  return new Response(asset.body,{status:asset.status,headers});
