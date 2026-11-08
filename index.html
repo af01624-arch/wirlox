@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>WIRLOX · Puzzle Banks 01–02 · Factory 5.10.3</title>
+<title>WIRLOX · Puzzle Banks 01–02 · Factory 5.10.4</title>
 <style>
   :root{color-scheme:dark;--blue:#8bd4ff;--warm:#ffe69a;--muted:#99a8c4;--panel:rgba(8,15,34,.72)}
   *{box-sizing:border-box}
@@ -724,7 +724,7 @@ canvas#wheel{transform:translateY(65px)}
 </div>
 <div class="head">
  <div class="panel">
-  <h1>WIRLOX <span class="version">· FACTORY 5.10.3 · BANKS 01–02</span></h1>
+  <h1>WIRLOX <span class="version">· FACTORY 5.10.4 · BANKS 01–02</span></h1>
   <div class="sub">← → position · ↑ ↓ change letter · opposite pair moves with it</div>
   <div class="dayMood" id="dayMood">PUZZLE 01 / 14 · WARM-UP · 14 LETTERS</div>
   <div class="statLine">Time: <strong id="timer">0:00</strong> <span class="sep">|</span> Moves: <strong id="moves">0</strong> <span class="sep">|</span> PB: <strong id="pb">—</strong> <span class="sep">|</span> Word: <strong id="wordCount">1 / 3</strong><span id="minimumHeader" hidden> <span class="sep">|</span> Perfect: <strong id="minimumHeaderScore">—</strong></span></div>
@@ -863,6 +863,7 @@ let width=0,height=0,dpr=1,transition=false,finished=false,winPositions=[],lastF
 let gameRunning=false,elapsedMs=0,activeSince=0,lastShownSeconds=-1,lastRunScore=null;
 // Track only accepted arrow moves, without changing the rules or the timer.
 let moveTrace='',runId=0;
+let completionVerificationPromise=Promise.resolve(false);
 let verifiedOptimalRoute=null,replayData=null,replayStep=0,replaySnapshot=null,replayTimer=null;
 let anonymousIdInMemory=null;
 const ANON_PLAYER_KEY='wirlox-anonymous-player-v1';
@@ -948,7 +949,7 @@ async function submitCompletedRun(){
  const result=$('onlineResult');result.hidden=false;
  if(!steps||steps.length!==moves||steps.length>700){
   result.textContent='Online verification unavailable for this run; your local personal best is preserved.';
-  return;
+  return false;
  }
  result.textContent=FACTORY_PRIVATE?'Verifying private Factory run…':'Verifying completed run and checking global first-attempt average…';
  try{
@@ -958,7 +959,7 @@ async function submitCompletedRun(){
   });
   const data=await response.json();
   if(!response.ok||data.verified!==true)throw new Error('Unable to verify result');
-  if(run!==runId||!finished||puzzleIndex+1!==puzzleNumber)return;
+  if(run!==runId||!finished||puzzleIndex+1!==puzzleNumber)return false;
   const sample=Number(data.sampleSize),average=Number(data.globalAverage);
   const summary=Number.isFinite(average)&&Number.isInteger(sample)&&sample>0
    ?`Global first-attempt average: ${average.toFixed(1)} moves (${sample} ${sample===1?'result':'results'}).`
@@ -975,9 +976,11 @@ async function submitCompletedRun(){
    :(data.firstRecorded
      ?'First completed attempt recorded. '
      :'Your first attempt was already recorded. ')+summary;
+  return true;
  }catch(error){
   if(run===runId&&finished&&puzzleIndex+1===puzzleNumber)
    result.textContent='Online verification unavailable; your local personal best is unaffected.';
+  return false;
  }
 }
 
@@ -1002,7 +1005,33 @@ function reviewKey(){return (FACTORY_PRIVATE?'wirlox-private-review-':'wirlox-fa
 function readReview(){const key=reviewKey();if(sessionReview[key])return sessionReview[key];try{const raw=localStorage.getItem(key);if(raw)return JSON.parse(raw);}catch(e){}return {feel:'',note:''};}
 function writeReview(o){const key=reviewKey();sessionReview[key]=o;try{localStorage.setItem(key,JSON.stringify(o));}catch(e){}}
 function updateFeedback(){const obj=readReview();$('feedbackNote').value=obj.note||'';document.querySelectorAll('[data-feel]').forEach(b=>b.classList.toggle('selected',b.dataset.feel===obj.feel));$('copyStatus').textContent='';$('copyFallback').style.display='none';}
-function saveReview(){const old=readReview();writeReview({feel:old.feel,note:$('feedbackNote').value.trim()});$('copyStatus').textContent='Feedback saved locally for this puzzle.';}
+// Send the existing feedback controls to D1 after the normal run verification.
+// Requests are serialized so rapid corrections cannot overwrite newer comments.
+let feedbackQueue=Promise.resolve();
+function submitReviewToD1(){
+ const review=readReview(),puzzleNumber=puzzleIndex+1,playerId=getAnonymousPlayerId();
+ const verification=completionVerificationPromise,submissionRun=runId;
+ if(!review.feel&&!review.note)return;
+ $('copyStatus').textContent='Saving feedback to WIRLOX…';
+ feedbackQueue=feedbackQueue.catch(()=>{}).then(async()=>{
+  if(!await verification)throw Error('Run not verified');
+  const response=await fetch(FACTORY_PRIVATE?'/api/factory/feedback':'/api/feedback',{
+   method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',cache:'no-store',
+   body:JSON.stringify({puzzleNumber,playerId,feel:review.feel,note:review.note})
+  });
+  const result=await response.json();
+  if(!response.ok||result.saved!==true)throw Error('Feedback not accepted');
+  if(runId===submissionRun&&puzzleIndex+1===puzzleNumber)
+   $('copyStatus').textContent='Feedback saved to WIRLOX.';
+ }).catch(()=>{
+  if(runId===submissionRun&&puzzleIndex+1===puzzleNumber)
+   $('copyStatus').textContent='Feedback saved on this device only. Please try Save note again.';
+ });
+}
+function saveReview(){
+ const old=readReview();writeReview({feel:old.feel,note:$('feedbackNote').value.trim()});
+ submitReviewToD1();
+}
 function bankNotes(){return [FACTORY_PRIVATE?'WIRLOX — Private Factory':'WIRLOX — Puzzle Banks 01–02',...PUZZLES.map((p,i)=>{
  const stored=sessionPB[p.name];let best=stored??null;
  if(best===null){try{best=Number(localStorage.getItem((FACTORY_PRIVATE?'wirlox-private-':'wirlox-factory4-')+p.name))||null;}catch(e){}}
@@ -1156,7 +1185,7 @@ function showResults(){
    gap===0?'You achieved the mathematically proven minimum. No shorter solution exists under these rules.':
    `The mathematically proven minimum is ${gap} ${gap===1?'move':'moves'} below your result. The solution remains hidden.`;
  $('finalDetail').textContent=`${puzzleLabel(puzzleIndex)} · ${p.words.join(' · ')} | ${breakdown.join(' + ')} moves.`;
- $('results').style.display='block';updateFeedback();submitCompletedRun();
+ $('results').style.display='block';updateFeedback();completionVerificationPromise=submitCompletedRun();
 }
 function horizontal(delta){
  if(!gameRunning||transition||finished)return;
@@ -1243,7 +1272,7 @@ $('reset').addEventListener('click',()=>reset(true));$('playAgain').addEventList
  $('startRun').addEventListener('click',beginRun);
  $('playFromHow').addEventListener('click',beginRun);
 $('nextDone').addEventListener('click',()=>{if(pendingDailyNumber===null){userChosePuzzle=true;puzzleIndex=(puzzleIndex+1)%PUZZLES.length;$('puzzle').value=String(puzzleIndex);}reset();});
-document.querySelectorAll('[data-feel]').forEach(btn=>btn.addEventListener('click',()=>{const o=readReview();o.feel=btn.dataset.feel;o.note=$('feedbackNote').value.trim();writeReview(o);updateFeedback();}));
+document.querySelectorAll('[data-feel]').forEach(btn=>btn.addEventListener('click',()=>{const o=readReview();o.feel=btn.dataset.feel;o.note=$('feedbackNote').value.trim();writeReview(o);updateFeedback();submitReviewToD1();}));
 $('saveFeel').addEventListener('click',saveReview);
 $('copyFeedback').addEventListener('click',()=>{saveReview();copyAllNotes();});
 $('next').addEventListener('click',()=>{userChosePuzzle=true;pendingDailyNumber=null;puzzleIndex=(puzzleIndex+1)%PUZZLES.length;$('puzzle').value=String(puzzleIndex);reset(true);});
@@ -1472,6 +1501,7 @@ function fromD1(p){
   start:p.start,words:p.words,reference:p.reference,
   excellent:p.excellent,good:p.good,average:p.average};
 }
+// Factory 5.10.4: feedback only; private Factory puzzle loading unchanged.
 // Factory 5.10.3: authenticated, private view of all D1 puzzles, including
 // unreleased daily and Bank 06. Never embed those puzzles in public HTML.
 // It reuses the EXISTING wheel/game/results/replay layouts unchanged.
@@ -1496,9 +1526,9 @@ async function loadPrivateFactoryPuzzles(){
    updateUI();
    if(!$('archiveView').hidden)showArchive();
    else if(!$('quickView').hidden)showQuickReady();
-   document.title='WIRLOX · Private Factory · 5.10.3';
+   document.title='WIRLOX · Private Factory · 5.10.4';
    const version=document.querySelector('.version');
-   if(version)version.textContent='· FACTORY 5.10.3 · PRIVATE';
+   if(version)version.textContent='· FACTORY 5.10.4 · PRIVATE';
    const archiveTitle=$('archiveView').querySelector('.eyebrow');
    if(archiveTitle)archiveTitle.textContent='WIRLOX · PRIVATE FACTORY · '+PUZZLES.length+' PUZZLES';
   }catch(error){
@@ -1580,9 +1610,9 @@ async function loadD1Archive(trigger='initial'){
   // daily; the wheel and active puzzle are never reset while playing.
   if(!$('archiveView').hidden)showArchive();
   updateDailyCountdown();
-  document.title='WIRLOX · Puzzle Banks 01–04 · Factory 5.10.3';
+  document.title='WIRLOX · Puzzle Banks 01–04 · Factory 5.10.4';
   const version=document.querySelector('.version');
-  if(version)version.textContent='· FACTORY 5.10.3 · BANKS 01–04';
+  if(version)version.textContent='· FACTORY 5.10.4 · BANKS 01–04';
   const archiveTitle=$('archiveView').querySelector('.eyebrow');
   if(archiveTitle)archiveTitle.textContent='WIRLOX · PUZZLE BANKS 01–04';
  }catch(error){

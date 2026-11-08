@@ -195,6 +195,40 @@ async function privateFactoryAttempt(request,db){
    optimum:p.optimum,globalAverage:null,sampleSize:0,optimalRoute:route.route});
 }
 
+// Factory 5.10.4 feedback: one editable record per puzzle and anonymous browser.
+// No IP addresses, account details, or unpublished puzzle content are stored.
+// Public feedback is accepted only after that browser's verified first completion.
+async function savePuzzleFeedback(request,db,isPrivate){
+  if(request.headers.get('Origin')!==new URL(request.url).origin)return json({error:'Not allowed'},403);
+  if(request.headers.get('content-type')?.split(';')[0].trim()!=='application/json')return json({error:'JSON required'},415);
+  if(Number(request.headers.get('content-length')||0)>2048)return json({error:'Too large'},413);
+  let data;
+  try{const text=await request.text();if(text.length>2048)return json({error:'Too large'},413);data=JSON.parse(text);}
+  catch{return json({error:'Invalid JSON'},400);}
+  const number=data?.puzzleNumber,playerId=data?.playerId,feel=data?.feel,note=data?.note;
+  if(!Number.isInteger(number)||number<1||number>(isPrivate?FACTORY_MAX_PUZZLE:LAST_DAILY)||
+     typeof playerId!=='string'||!UUID_RE.test(playerId)||
+     typeof feel!=='string'||!['','Clever','Straightforward','Grindy'].includes(feel)||
+     typeof note!=='string'||note.length>240||/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(note))
+    return json({error:'Invalid feedback'},422);
+  const puzzle=await db.prepare('SELECT number, publication FROM puzzles WHERE number=?').bind(number).first();
+  if(!puzzle)return json({error:'Puzzle not found'},404);
+  if(!isPrivate){
+    const launch=await getLaunchDate(db);
+    if(!unlocked(puzzle,todayInMadrid(),launch))return json({error:'Puzzle not released'},404);
+    const completed=await db.prepare('SELECT 1 AS found FROM first_attempts WHERE puzzle_number=? AND anonymous_player_id=?')
+       .bind(number,playerId).first();
+    if(!completed)return json({error:'Verified completion required'},409);
+  }
+  await db.prepare(`INSERT INTO puzzle_feedback
+    (source,puzzle_number,anonymous_player_id,feel,note,updated_at)
+    VALUES(?,?,?,?,?,strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    ON CONFLICT(source,puzzle_number,anonymous_player_id)
+    DO UPDATE SET feel=excluded.feel,note=excluded.note,updated_at=excluded.updated_at`)
+    .bind(isPrivate?'factory':'public',number,playerId,feel,note.trim()).run();
+  return json({saved:true,puzzleNumber:number});
+}
+
 export default {
   async fetch(request,env){
     const url=new URL(request.url);
@@ -207,6 +241,7 @@ export default {
         if(!env.DB)return json({error:'D1 binding not configured'},503);
         if(url.pathname==='/api/factory/puzzles'&&request.method==='GET')return privateFactoryPuzzles(env.DB);
         if(url.pathname==='/api/factory/attempt'&&request.method==='POST')return privateFactoryAttempt(request,env.DB);
+        if(url.pathname==='/api/factory/feedback'&&request.method==='POST')return savePuzzleFeedback(request,env.DB,true);
         return json({error:'Not found'},404);
       }
       if(!env.DB)return json({error:'D1 binding not configured'},503);
@@ -216,6 +251,7 @@ export default {
       }
       if(url.pathname==='/api/state'&&request.method==='GET')return json(await state(env.DB));
       if(url.pathname==='/api/attempt'&&request.method==='POST')return attempt(request,env.DB);
+      if(url.pathname==='/api/feedback'&&request.method==='POST')return savePuzzleFeedback(request,env.DB,false);
       return json({error:'Not found'},404);
     }catch(e){console.error('WIRLOX API error:',e?.message||String(e));return json({error:'Service temporarily unavailable'},503);}
   }
