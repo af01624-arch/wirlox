@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>WIRLOX · Puzzle Banks 01–02 · Factory 5.6</title>
+<title>WIRLOX · Puzzle Banks 01–02 · Factory 5.7</title>
 <style>
   :root{color-scheme:dark;--blue:#8bd4ff;--warm:#ffe69a;--muted:#99a8c4;--panel:rgba(8,15,34,.72)}
   *{box-sizing:border-box}
@@ -558,7 +558,7 @@ canvas#wheel{transform:translateY(65px)}
 </div>
 <div class="head">
  <div class="panel">
-  <h1>WIRLOX <span class="version">· FACTORY 5.6 · BANKS 01–02</span></h1>
+  <h1>WIRLOX <span class="version">· FACTORY 5.7 · BANKS 01–02</span></h1>
   <div class="sub">← → position · ↑ ↓ change letter · opposite pair moves with it</div>
   <div class="dayMood" id="dayMood">PUZZLE 01 / 14 · WARM-UP · 14 LETTERS</div>
   <div class="statLine">Time: <strong id="timer">0:00</strong> <span class="sep">|</span> Moves: <strong id="moves">0</strong> <span class="sep">|</span> PB: <strong id="pb">—</strong> <span class="sep">|</span> Word: <strong id="wordCount">1 / 3</strong><span id="minimumHeader" hidden> <span class="sep">|</span> Perfect: <strong id="minimumHeaderScore">—</strong></span></div>
@@ -621,7 +621,7 @@ canvas#wheel{transform:translateY(65px)}
   <div class="splashTagline">THREE WORDS. TWO WHEELS.<br>FEWEST MOVES.</div>
   <div class="splashMicroline"></div>
   <div class="splashDailyIdentity" id="splashDailyIdentity">
-    <div class="splashDailyKicker">DAILY PUZZLE <strong id="splashDailyNumber">01</strong></div>
+    <div class="splashDailyKicker"><span id="splashPuzzleKind">ARCHIVE PUZZLE</span> <strong id="splashDailyNumber">01</strong></div>
     <div class="splashDailyDate" id="splashDailyDate"></div>
   </div>
   <button id="startRun" class="splashPrimary" type="button">PLAY</button>
@@ -663,6 +663,11 @@ let gameRunning=false,elapsedMs=0,activeSince=0,lastShownSeconds=-1,lastRunScore
 let moveTrace='',runId=0;
 let anonymousIdInMemory=null;
 const ANON_PLAYER_KEY='wirlox-anonymous-player-v1';
+// Factory 5.7: the API is the only authority for daily release and Madrid date.
+// No unreleased daily puzzle is included in this HTML.
+let currentDailyNumber=null;
+let userChosePuzzle=false;
+let serverDateLabel=null;
 function getAnonymousPlayerId(){
  const valid=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
  try{const stored=localStorage.getItem(ANON_PLAYER_KEY);if(stored&&valid.test(stored))return stored;}catch(e){}
@@ -789,10 +794,13 @@ function showIntro(){
 function showQuickReady(){
  // Until daily scheduling is activated, show the actual playable puzzle number;
  // never falsely label an unreleased puzzle as playable.
- $('splashDailyNumber').textContent=String(puzzleIndex+1).padStart(2,'0');
- const visibleDate=new Intl.DateTimeFormat('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'Europe/Madrid'}).format(new Date());
+ const chosenNumber=puzzleIndex+1;
+ const isToday=currentDailyNumber===chosenNumber;
+ $('splashPuzzleKind').textContent=isToday?'DAILY PUZZLE':'ARCHIVE PUZZLE';
+ $('splashDailyNumber').textContent=String(chosenNumber).padStart(2,'0');
+ const visibleDate=serverDateLabel||new Intl.DateTimeFormat('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'Europe/Madrid'}).format(new Date());
  $('splashDailyDate').textContent=visibleDate;
- $('splashDailyIdentity').setAttribute('aria-label',`Puzzle ${puzzleIndex+1}, ${visibleDate}`);
+ $('splashDailyIdentity').setAttribute('aria-label',`${isToday?'Daily':'Archive'} puzzle ${chosenNumber}, ${visibleDate}`);
  $('introView').hidden=true;$('quickView').hidden=false;$('archiveView').hidden=true;
  $('readyOverlay').setAttribute('aria-label','WIRLOX home');
  $('readyOverlay').removeAttribute('aria-labelledby');
@@ -804,7 +812,7 @@ $('showHowToPlay').addEventListener('click',showIntro);
 $('backToHome').addEventListener('click',showQuickReady);
 $('archiveList').addEventListener('click',e=>{
  const button=e.target.closest('[data-puzzle]');if(!button)return;
- puzzleIndex=Number(button.dataset.puzzle);$('puzzle').value=String(puzzleIndex);reset();
+ userChosePuzzle=true;puzzleIndex=Number(button.dataset.puzzle);$('puzzle').value=String(puzzleIndex);reset();
 });
 function reset(){
  runId++;moveTrace='';$('onlineResult').hidden=true;
@@ -941,15 +949,15 @@ window.addEventListener('keydown',e=>{
 });
 for(const btn of document.querySelectorAll('[data-dir]')){btn.addEventListener('pointerdown',unlockClick);btn.addEventListener('click',()=>move(btn.dataset.dir));}
 $('reset').addEventListener('click',reset);$('playAgain').addEventListener('click',reset);
- const beginRun=()=>{unlockClick();if(gameRunning)return;gameRunning=true;activeSince=performance.now();$('readyOverlay').hidden=true;};
+ const beginRun=()=>{unlockClick();if(gameRunning)return;userChosePuzzle=true;gameRunning=true;activeSince=performance.now();$('readyOverlay').hidden=true;};
  $('startRun').addEventListener('click',beginRun);
  $('playFromHow').addEventListener('click',beginRun);
-$('nextDone').addEventListener('click',()=>{puzzleIndex=(puzzleIndex+1)%PUZZLES.length;$('puzzle').value=String(puzzleIndex);reset();});
+$('nextDone').addEventListener('click',()=>{userChosePuzzle=true;puzzleIndex=(puzzleIndex+1)%PUZZLES.length;$('puzzle').value=String(puzzleIndex);reset();});
 document.querySelectorAll('[data-feel]').forEach(btn=>btn.addEventListener('click',()=>{const o=readReview();o.feel=btn.dataset.feel;o.note=$('feedbackNote').value.trim();writeReview(o);updateFeedback();}));
 $('saveFeel').addEventListener('click',saveReview);
 $('copyFeedback').addEventListener('click',()=>{saveReview();copyAllNotes();});
-$('next').addEventListener('click',()=>{puzzleIndex=(puzzleIndex+1)%PUZZLES.length;$('puzzle').value=String(puzzleIndex);reset();});
-$('puzzle').addEventListener('change',e=>{puzzleIndex=Number(e.target.value);reset();});
+$('next').addEventListener('click',()=>{userChosePuzzle=true;puzzleIndex=(puzzleIndex+1)%PUZZLES.length;$('puzzle').value=String(puzzleIndex);reset();});
+$('puzzle').addEventListener('change',e=>{userChosePuzzle=true;puzzleIndex=Number(e.target.value);reset();});
 
  // Factory 4.8: Move the EXISTING UI into an optional phone menu.
  // No duplicate buttons, IDs or stats; existing listeners and scoring remain intact.
@@ -1158,39 +1166,77 @@ function render(t){
 window.__wheelTest={getState:()=>wheel.map(i=>ABC[i]).join(''),getCursor:()=>cursor,
  getWords:()=>PUZZLES[puzzleIndex].words.slice(),getMirrorRear:()=>mirrorRear,getReference:()=>PUZZLES[puzzleIndex].reference,getPuzzle:()=>PUZZLES[puzzleIndex].name,getLevel:()=>level,getMoves:()=>moves,getTime:()=>timeMs(),getScore:()=>lastRunScore,
  getAudioState:()=>clickContext?.state||"not initialized",move,reset,start:()=>{if(!gameRunning){gameRunning=true;activeSince=performance.now();$('readyOverlay').hidden=true;}},findCurrent:()=>findWord(PUZZLES[puzzleIndex].words[Math.min(level,PUZZLES[puzzleIndex].words.length-1)])};
-// Factory 5.5: connect the existing archive screen to public D1 puzzle banks 03–04.
-// Daily puzzles stay locked; the original 14 puzzles remain playable if D1 fails.
+// Factory 5.7: the same trusted API populates the archive and (after launch)
+// supplies the current daily plus previously released dailies. Only server-
+// released puzzles can reach this client. The original 14 stay as fallback.
+function validRemotePuzzle(p,number){
+ return !!p && p.number===number && typeof p.name==='string' && !!p.name &&
+  typeof p.mood==='string' && /^[A-Z]{14}$/.test(p.start||'') &&
+  Array.isArray(p.words) && p.words.length===3 &&
+  p.words.every(w=>typeof w==='string' && /^[A-Z]+$/.test(w)) &&
+  Number.isFinite(p.reference) && Number.isFinite(p.excellent) &&
+  Number.isFinite(p.good) && Number.isFinite(p.average);
+}
+function fromD1(p){
+ return {name:p.name,day:p.day,mood:p.mood,mode:'14 letters · 3 words',
+  start:p.start,words:p.words,reference:p.reference,
+  excellent:p.excellent,good:p.good,average:p.average};
+}
 async function loadD1Archive(){
  try{
   const response=await fetch('/api/state',{cache:'no-store'});
   if(!response.ok)throw new Error('Archive API status '+response.status);
   const state=await response.json();
-  if(!Array.isArray(state.archive))throw new Error('Archive data missing');
+  if(!Array.isArray(state.archive)||!Array.isArray(state.releasedDaily))
+   throw new Error('Archive data missing');
+  // Every initial archive entry must be present, correctly numbered, and valid.
   const extra=state.archive.slice().sort((a,b)=>a.number-b.number);
-  if(extra.length!==14||extra.some((p,i)=>
-    p.number!==i+15||typeof p.name!=='string'||!p.name||
-    typeof p.mood!=='string'||!/^[A-Z]{14}$/.test(p.start||'')||
-    !Array.isArray(p.words)||p.words.length!==3||
-    p.words.some(w=>typeof w!=='string'||!/^[A-Z]+$/.test(w))||
-    !Number.isFinite(p.reference)||!Number.isFinite(p.excellent)||
-    !Number.isFinite(p.good)||!Number.isFinite(p.average)
-  ))throw new Error('D1 archive incomplete or invalid');
-  PUZZLES.push(...extra.map(p=>({
-    name:p.name,day:p.day,mood:p.mood,mode:'14 letters · 3 words',
-    start:p.start,words:p.words,reference:p.reference,
-    excellent:p.excellent,good:p.good,average:p.average
-  })));
+  if(extra.length!==14 || extra.some((p,i)=>!validRemotePuzzle(p,i+15)))
+   throw new Error('D1 archive incomplete or invalid');
+  // Earlier dailies become playable only after the Worker has released them.
+  // A gap, duplicate, or malformed entry cannot change the puzzle numbering.
+  const released=state.releasedDaily.slice().sort((a,b)=>a.number-b.number);
+  if(released.length>7 || released.some((p,i)=>!validRemotePuzzle(p,i+29)))
+   throw new Error('Released daily data incomplete or invalid');
+  const daily=state.daily;
+  let todayNumber=null;
+  if(state.status==='live'){
+   if(!daily || !validRemotePuzzle(daily,daily.number) ||
+    daily.number<29 || daily.number>35 ||
+    !released.some(p=>p.number===daily.number && p.name===daily.name))
+    throw new Error('Current daily not in released daily list');
+   todayNumber=daily.number;
+  }else if(daily!==null){
+   throw new Error('Unreleased daily unexpectedly present');
+  }
+  PUZZLES.push(...extra.map(fromD1),...released.map(fromD1));
+  currentDailyNumber=todayNumber;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(state.date||'')){
+   // Render the date from the Madrid-time backend instead of the device clock.
+   serverDateLabel=new Intl.DateTimeFormat('en-GB',
+    {weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'UTC'})
+    .format(new Date(state.date+'T12:00:00Z'));
+  }
   $('puzzle').innerHTML=PUZZLES.map((p,i)=>
-    `<option value="${i}">${puzzleLabel(i)} · ${p.words.join(' / ')}</option>`).join('');
-  updateUI();
+   `<option value="${i}">${puzzleLabel(i)} · ${p.words.join(' / ')}</option>`).join('');
+  // Choose today's puzzle only on initial load, never after the player selects
+  // an archive item or starts a game while the API request is in flight.
+  if(todayNumber!==null && !userChosePuzzle && !gameRunning && !finished){
+   puzzleIndex=todayNumber-1;
+   $('puzzle').value=String(puzzleIndex);
+   reset();
+  }else{
+   updateUI();
+   if(!$('quickView').hidden)showQuickReady();
+  }
   if(!$('archiveView').hidden)showArchive();
-  document.title='WIRLOX · Puzzle Banks 01–04 · Factory 5.6';
+  document.title='WIRLOX · Puzzle Banks 01–04 · Factory 5.7';
   const version=document.querySelector('.version');
-  if(version)version.textContent='· FACTORY 5.6 · BANKS 01–04';
+  if(version)version.textContent='· FACTORY 5.7 · BANKS 01–04';
   const archiveTitle=$('archiveView').querySelector('.eyebrow');
   if(archiveTitle)archiveTitle.textContent='WIRLOX · PUZZLE BANKS 01–04';
  }catch(error){
-  console.warn('WIRLOX D1 archive unavailable; original 14 puzzles still playable.',error);
+  console.warn('WIRLOX D1 unavailable; existing archive puzzles remain playable.',error);
  }
 }
 reset();loadD1Archive();requestAnimationFrame(render);
