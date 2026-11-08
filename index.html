@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>WIRLOX · Puzzle Banks 01–02 · Factory 5.8</title>
+<title>WIRLOX · Puzzle Banks 01–02 · Factory 5.9</title>
 <style>
   :root{color-scheme:dark;--blue:#8bd4ff;--warm:#ffe69a;--muted:#99a8c4;--panel:rgba(8,15,34,.72)}
   *{box-sizing:border-box}
@@ -531,7 +531,7 @@ canvas#wheel{transform:translateY(65px)}
  #quickView .splashDailyDate{font-size:10px}
 }
 
-/* Factory 5.8: restrained home-only countdown; never shown before daily launch. */
+/* Factory 5.9: restrained home-only countdown; never shown before daily launch. */
 #quickView .splashDailyCountdown{display:flex;gap:8px;justify-content:center;align-items:baseline;
  color:#b2cee1;font-size:11px;letter-spacing:.10em;line-height:1.5;white-space:nowrap;
  font-variant-numeric:tabular-nums;margin-top:1px}
@@ -546,6 +546,36 @@ canvas#wheel{transform:translateY(65px)}
 #onlineResult{margin:9px 0 11px;padding:9px 12px;border-top:1px solid rgba(174,206,255,.16);
  font-size:12px;line-height:1.45;color:#c1daf1}
 #onlineResult[hidden]{display:none!important}
+
+/* Factory 5.9: post-completion optimal-route lesson, independent of game input. */
+#optimalReplayButton{font-size:13px;margin:8px auto 3px;border:1px solid rgba(248,211,137,.72);color:#ffe6a8;background:rgba(90,63,30,.30);padding:11px 19px}
+#optimalReplayButton[hidden],#solutionReplay[hidden]{display:none!important}
+#solutionReplay{position:fixed;inset:0;z-index:13;pointer-events:none;font-family:Arial,Helvetica,sans-serif}
+#solutionReplay .replayShade{position:absolute;inset:0;background:rgba(2,7,20,.14);pointer-events:auto}
+#solutionReplay .replayPanel{position:absolute;right:18px;top:50%;transform:translateY(-50%);width:min(325px,34vw);max-height:min(82dvh,750px);display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:17px;pointer-events:auto;background:linear-gradient(160deg,rgba(21,33,61,.97),rgba(9,17,34,.98));border:1px solid rgba(167,201,246,.36);box-shadow:0 16px 55px #0008;color:#e9f2ff}
+.replayEyebrow{text-transform:uppercase;color:#aabedb;font-size:10px;font-weight:700;letter-spacing:.18em}
+.replayHeading{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.replayHeading h2{font-size:22px;line-height:1.1;margin:0;color:#f3f7ff}
+.replayClose{border:1px solid #536c91;background:transparent;color:#cbdcf7;font-size:12px;padding:7px 10px}
+.replaySub{font-size:12px;color:#afc2dd;line-height:1.45}
+.replayProgress{display:flex;justify-content:space-between;align-items:baseline;gap:8px;color:#f4d794;font-size:12px}
+.replayProgress strong{font-size:22px;font-variant-numeric:tabular-nums}
+.replayExplanation{padding:12px;background:rgba(45,68,110,.24);border:1px solid rgba(153,190,239,.26);border-radius:11px;line-height:1.5;color:#eaf3ff;font-size:13px;min-height:64px}
+.replayStage{color:#f0d18f;font-size:11px;letter-spacing:.05em}
+.replayNotation{display:flex;flex-wrap:wrap;align-content:flex-start;gap:5px;overflow:auto;max-height:215px;min-height:55px;padding:4px 2px 8px}
+.replayNotation button{font-size:11px;font-variant-numeric:tabular-nums;border:1px solid rgba(157,189,229,.25);color:#cbd9f1;background:rgba(35,54,86,.45);padding:7px 8px;border-radius:7px;white-space:nowrap}
+.replayNotation button.done{color:#90b4c4}.replayNotation button.active{color:#fff3c7;border-color:#efcc81;background:rgba(136,100,39,.48)}
+.replayNotation .wordMarker{width:100%;font-size:11px;color:#9de2bc;padding:5px 3px 2px;border-bottom:1px solid rgba(130,211,174,.17);font-weight:700;letter-spacing:.07em}
+.replayActions{display:flex;align-items:center;justify-content:space-between;gap:5px}
+.replayActions button{padding:10px 11px;font-size:12px;flex:1}
+.replayActions button:disabled{opacity:.37;cursor:default}
+.replayActions .replayPrimary{color:#ffe4a0;border-color:#e7c57d;background:rgba(121,79,34,.36)}
+.replayFoot{font-size:10px;line-height:1.4;color:#98a9c3}
+@media(max-width:1050px) and (min-width:701px){#solutionReplay .replayPanel{width:300px;right:10px;padding:13px;max-height:86dvh}.replayNotation{max-height:145px}}
+@media(max-width:700px){#solutionReplay .replayShade{background:rgba(3,7,18,.07)}#solutionReplay .replayPanel{left:8px;right:8px;bottom:7px;top:auto;transform:none;width:auto;max-height:48dvh;padding:10px 12px;gap:6px;border-radius:15px}.replayHeading h2{font-size:17px}.replaySub{font-size:10px}.replayProgress strong{font-size:17px}.replayExplanation{padding:8px;min-height:0;font-size:11px}.replayNotation{max-height:65px;min-height:33px}.replayFoot{display:none}.replayActions button{font-size:11px;padding:8px}}
+@media(max-width:700px) and (orientation:landscape){#solutionReplay .replayPanel{left:auto;right:6px;top:6px;bottom:6px;max-height:none;width:42vw;transform:none}.replayNotation{max-height:none;flex:1}.replaySub,.replayFoot{display:none}}
+@media(min-width:701px) and (max-height:550px){#solutionReplay .replayPanel{top:7px;bottom:auto;transform:none;max-height:calc(100dvh - 14px);padding:9px 12px;gap:5px}.replayNotation{max-height:67px;min-height:35px;flex:0 1 auto}.replayHeading h2{font-size:18px}.replayFoot{display:none}.replayExplanation{min-height:0;padding:8px}.replayActions button{padding:7px}}
+@media(prefers-reduced-motion:reduce){.replayNotation button{transition:none}}
 </style>
 </head>
 <body>
@@ -569,7 +599,7 @@ canvas#wheel{transform:translateY(65px)}
 </div>
 <div class="head">
  <div class="panel">
-  <h1>WIRLOX <span class="version">· FACTORY 5.8 · BANKS 01–02</span></h1>
+  <h1>WIRLOX <span class="version">· FACTORY 5.9 · BANKS 01–02</span></h1>
   <div class="sub">← → position · ↑ ↓ change letter · opposite pair moves with it</div>
   <div class="dayMood" id="dayMood">PUZZLE 01 / 14 · WARM-UP · 14 LETTERS</div>
   <div class="statLine">Time: <strong id="timer">0:00</strong> <span class="sep">|</span> Moves: <strong id="moves">0</strong> <span class="sep">|</span> PB: <strong id="pb">—</strong> <span class="sep">|</span> Word: <strong id="wordCount">1 / 3</strong><span id="minimumHeader" hidden> <span class="sep">|</span> Perfect: <strong id="minimumHeaderScore">—</strong></span></div>
@@ -611,6 +641,8 @@ canvas#wheel{transform:translateY(65px)}
  </div>
  <p id="finalDetail"></p>
  <div id="onlineResult" aria-live="polite" hidden></div>
+
+<button id="optimalReplayButton" type="button" hidden>▶ STUDY PERFECT ROUTE</button>
  <div class="rating" id="rating">
    <div class="ratingTitle">HOW DID THIS PUZZLE FEEL?</div>
    <div class="ratingButtons">
@@ -625,6 +657,20 @@ canvas#wheel{transform:translateY(65px)}
  <button id="copyFeedback" type="button">Copy puzzle-bank feedback</button>
  <div class="copyStatus" id="copyStatus" role="status"></div>
  <textarea id="copyFallback" readonly aria-label="Feedback to copy" style="display:none"></textarea>
+</div>
+
+<div id="solutionReplay" role="dialog" aria-label="Optimal route replay" aria-modal="true" hidden>
+  <div class="replayShade"></div>
+  <section class="replayPanel">
+    <div class="replayEyebrow">WIRLOX · POST-GAME STUDY</div>
+    <div class="replayHeading"><h2>Perfect route</h2><button id="replayClose" class="replayClose" type="button">✕ Close</button></div>
+    <div class="replaySub" id="replayPuzzle">One proven shortest path. Follow the moves, then try it yourself.</div>
+    <div class="replayProgress"><span><strong id="replayCounter">0 / 20</strong> moves</span><span id="replayStage" class="replayStage">WORD 1 OF 3</span></div>
+    <div class="replayExplanation" id="replayExplanation" aria-live="polite">Start position · front letter selected.</div>
+    <div class="replayNotation" id="replayNotation" aria-label="Clickable optimal move list"></div>
+    <div class="replayActions"><button type="button" id="replayBack">◀ Back</button><button type="button" id="replayPlay" class="replayPrimary">▶ Play</button><button type="button" id="replayForward">Next ▶</button></div>
+    <div class="replayFoot">H← / H→ rotates the 14-position wheel. V↑ / V↓ changes both linked letters. Tap any move to jump there. This is one optimal route; others may exist.</div>
+  </section>
 </div>
 <div id="readyOverlay" role="dialog" aria-modal="true" aria-label="WIRLOX home and instructions">
 <section id="quickView" class="splashPage" aria-label="WIRLOX home screen"><div class="splashInner">
@@ -673,6 +719,7 @@ let width=0,height=0,dpr=1,transition=false,finished=false,winPositions=[],lastF
 let gameRunning=false,elapsedMs=0,activeSince=0,lastShownSeconds=-1,lastRunScore=null;
 // Track only accepted arrow moves, without changing the rules or the timer.
 let moveTrace='',runId=0;
+let verifiedOptimalRoute=null,replayData=null,replayStep=0,replaySnapshot=null,replayTimer=null;
 let anonymousIdInMemory=null;
 const ANON_PLAYER_KEY='wirlox-anonymous-player-v1';
 // Factory 5.7: the API is the only authority for daily release and Madrid date.
@@ -680,7 +727,7 @@ const ANON_PLAYER_KEY='wirlox-anonymous-player-v1';
 let currentDailyNumber=null;
 let userChosePuzzle=false;
 let serverDateLabel=null;
-// Factory 5.8: a server-anchored Madrid clock and safe refresh of today's release.
+// Factory 5.9: a server-anchored Madrid clock and safe refresh of today's release.
 let dailyStatus='not_launched',lastLoadedMadridDate=null;
 let serverClockBaseMs=null,serverClockBasePerf=0;
 let activeApiRefresh=null,lastApiRequestPerf=-Infinity;
@@ -772,6 +819,13 @@ async function submitCompletedRun(){
   const summary=Number.isFinite(average)&&Number.isInteger(sample)&&sample>0
    ?`Global first-attempt average: ${average.toFixed(1)} moves (${sample} ${sample===1?'result':'results'}).`
    :'Global comparison not yet available.';
+  if(typeof data.optimalRoute==='string' && /^[LRUD]+$/.test(data.optimalRoute) &&
+     data.optimalRoute.length===PUZZLES[puzzleIndex].reference &&
+     verifyOptimalRoute(PUZZLES[puzzleIndex],data.optimalRoute)){
+    verifiedOptimalRoute=data.optimalRoute;
+    $('optimalReplayButton').hidden=false;
+    $('minimumExplanation').textContent='This is the mathematically proven minimum. Study the perfect route below.';
+  }
   result.textContent=(data.firstRecorded
    ?'First completed attempt recorded. '
    :'Your first attempt was already recorded. ')+summary;
@@ -890,7 +944,7 @@ function reset(preserveSelection=false){
   $('puzzle').value=String(puzzleIndex);
   pendingDailyNumber=null;userChosePuzzle=false;
  }
- runId++;moveTrace='';$('onlineResult').hidden=true;
+ runId++;moveTrace='';verifiedOptimalRoute=null;$('optimalReplayButton').hidden=true;$('onlineResult').hidden=true;
  if(stageTimeout)clearTimeout(stageTimeout);if(toastTimeout)clearTimeout(toastTimeout);
  const p=PUZZLES[puzzleIndex];wheel=[...p.start].map(ch=>ABC.indexOf(ch));
  gameRunning=false;elapsedMs=0;activeSince=0;lastShownSeconds=-1;lastRunScore=null;
@@ -1328,9 +1382,9 @@ async function loadD1Archive(trigger='initial'){
   // daily; the wheel and active puzzle are never reset while playing.
   if(!$('archiveView').hidden)showArchive();
   updateDailyCountdown();
-  document.title='WIRLOX · Puzzle Banks 01–04 · Factory 5.8';
+  document.title='WIRLOX · Puzzle Banks 01–04 · Factory 5.9';
   const version=document.querySelector('.version');
-  if(version)version.textContent='· FACTORY 5.8 · BANKS 01–04';
+  if(version)version.textContent='· FACTORY 5.9 · BANKS 01–04';
   const archiveTitle=$('archiveView').querySelector('.eyebrow');
   if(archiveTitle)archiveTitle.textContent='WIRLOX · PUZZLE BANKS 01–04';
  }catch(error){
@@ -1345,6 +1399,114 @@ document.addEventListener('visibilitychange',()=>{
  if(!document.hidden){updateDailyCountdown();checkForDailyRefresh(true);}
 });
 window.addEventListener('focus',()=>checkForDailyRefresh(true));
+
+// Factory 5.9 — server-verified, post-completion optimal route lesson.
+// No solution routes are embedded in this public page. The Worker supplies one
+// only AFTER validating a completed arrow trace, including for archived puzzles.
+function buildReplayStates(p,route){
+ const ring=[...p.start].map(ch=>ABC.indexOf(ch));let focus=0,raw=ring[0],phase=0,stage=0;
+ const states=[{ring:ring.slice(),focus,raw,phase,stage,marks:[],note:'Start with the front letter selected.',notation:'START'}];
+ for(let i=0;i<route.length;i++){
+  const symbol=route[i];let note='';
+  if(symbol==='L'||symbol==='R'){
+   const prev=focus;const delta=symbol==='L'?-1:1;
+   focus=mod(focus+delta,14);phase+=(-delta*TWO/14);
+   raw=closest(ring[focus],raw);
+   note=`H${symbol==='L'?'←':'→'} · Move selection from slot ${prev+1} to slot ${focus+1}. The letters do not change.`;
+  }else{
+   const dx=symbol==='U'?-1:1;const opposite=(focus+7)%14;
+   const a=ABC[ring[focus]],b=ABC[ring[opposite]];
+   ring[focus]=mod(ring[focus]+dx,26);
+   ring[opposite]=mod(ring[opposite]+dx,26);
+   raw+=dx;
+   note=`V${symbol==='U'?'↑':'↓'} · Linked slots ${focus+1} and ${opposite+1}: ${a}→${ABC[ring[focus]]}, ${b}→${ABC[ring[opposite]]}.`;
+  }
+  const marks=[];
+  if(symbol==='U'||symbol==='D')while(stage<3 && !!wordPosition(ring,p.words[stage])){
+   marks.push(p.words[stage]);stage++;
+  }
+  states.push({ring:ring.slice(),focus,raw,phase,stage,marks,note,notation:(symbol==='L'?'H←':symbol==='R'?'H→':symbol==='U'?'V↑':'V↓')});
+ }
+ if(stage!==3)throw Error('Incomplete server solution');
+ return states;
+}
+function wordPosition(ring,word){
+ for(let x=0;x<14;x++)if([...word].every((ch,j)=>ring[(x+j)%14]===ABC.indexOf(ch)))return Array.from({length:5},(_,j)=>(x+j)%14);
+ return null;
+}
+function verifyOptimalRoute(p,route){
+ try{return buildReplayStates(p,route).length===p.reference+1;}catch{return false;}
+}
+function stopReplayAuto(){if(replayTimer!==null){clearInterval(replayTimer);replayTimer=null;}$('replayPlay').textContent='▶ Play';}
+function showReplayStep(k,animate=true){
+ if(!replayData)return;
+ const previous=replayStep;replayStep=Math.max(0,Math.min(replayData.length-1,k));
+ const s=replayData[replayStep];wheel=s.ring.slice();cursor=s.focus;verticalRaw=s.raw;
+ targetHorizontalPhase=s.phase;targetVerticalPhase=-verticalRaw*verticalStep;
+ if(!animate||Math.abs(previous-replayStep)!==1){horizontalPhase=targetHorizontalPhase;verticalPhase=targetVerticalPhase;}
+ level=Math.min(s.stage,2);moves=replayStep;winPositions=s.marks.length?wordPosition(s.ring,s.marks.at(-1)):[];
+ updateUI();
+ if(s.stage===3){$('focusCurrent').textContent='COMPLETE';$('focusCaption').textContent='THREE WORDS FOUND';}
+ const p=PUZZLES[puzzleIndex];
+ $('replayCounter').textContent=`${replayStep} / ${replayData.length-1}`;
+ $('replayStage').textContent=s.stage===3?'ALL THREE WORDS':`WORD ${s.stage+1} OF 3`;
+ $('replayExplanation').textContent=s.note+(s.marks.length?'  ✓ '+s.marks.join(' · ')+' completed.':'');
+ $('replayBack').disabled=replayStep===0;$('replayForward').disabled=replayStep>=replayData.length-1;
+ $('replayNotation').querySelectorAll('[data-replay-step]').forEach(b=>{
+  const step=Number(b.dataset.replayStep);b.classList.toggle('active',step===replayStep);b.classList.toggle('done',step<replayStep);
+ });
+ const selected=$('replayNotation').querySelector(`[data-replay-step="${replayStep}"]`);
+ if(selected)selected.scrollIntoView({block:'nearest',inline:'nearest'});
+ if(replayStep===replayData.length-1)stopReplayAuto();
+}
+function openOptimalReplay(){
+ if(!finished||!verifiedOptimalRoute||replaySnapshot)return;
+ const p=PUZZLES[puzzleIndex];
+ replayData=buildReplayStates(p,verifiedOptimalRoute);
+ replaySnapshot={wheel:wheel.slice(),cursor,verticalRaw,horizontalPhase,targetHorizontalPhase,verticalPhase,targetVerticalPhase,level,moves,winPositions:winPositions.slice()};
+ $('results').style.display='none';$('solutionReplay').hidden=false;
+ $('replayPuzzle').textContent=`${puzzleLabel(puzzleIndex)} · ${p.words.join(' / ')} · ${p.reference} moves`;
+ $('replayNotation').innerHTML='';
+ replayData.forEach((s,i)=>{
+  if(i===0)return;
+  const b=document.createElement('button');b.type='button';b.dataset.replayStep=String(i);
+  b.textContent=`${String(i).padStart(2,'0')}. ${s.notation}`;
+  $('replayNotation').appendChild(b);
+  if(s.marks.length){const marker=document.createElement('div');marker.className='wordMarker';marker.textContent='✓ '+s.marks.join(' · ')+' — move '+i;$('replayNotation').appendChild(marker);}
+ });
+ replayStep=0;showReplayStep(0,false);$('replayClose').focus();
+}
+function closeOptimalReplay(){
+ stopReplayAuto();if(!replaySnapshot)return;
+ ({wheel,cursor,verticalRaw,horizontalPhase,targetHorizontalPhase,verticalPhase,targetVerticalPhase,level,moves,winPositions}=replaySnapshot);
+ updateUI();
+ replaySnapshot=null;replayData=null;
+ $('solutionReplay').hidden=true;$('results').style.display='block';$('optimalReplayButton').focus();
+}
+$('optimalReplayButton').addEventListener('click',openOptimalReplay);
+$('replayClose').addEventListener('click',closeOptimalReplay);
+$('replayBack').addEventListener('click',()=>{stopReplayAuto();showReplayStep(replayStep-1);});
+$('replayForward').addEventListener('click',()=>{stopReplayAuto();showReplayStep(replayStep+1);});
+$('replayNotation').addEventListener('click',e=>{
+ const b=e.target.closest('[data-replay-step]');if(!b)return;
+ stopReplayAuto();showReplayStep(Number(b.dataset.replayStep),false);
+});
+$('replayPlay').addEventListener('click',()=>{
+ if(!replayData)return;
+ if(replayTimer!==null){stopReplayAuto();return;}
+ if(replayStep>=replayData.length-1)showReplayStep(0,false);
+ $('replayPlay').textContent='Ⅱ Pause';
+ replayTimer=setInterval(()=>showReplayStep(replayStep+1,true),1150);
+});
+document.addEventListener('keydown',e=>{
+ if(!replaySnapshot)return;
+ if(['Escape','ArrowLeft','ArrowRight',' '].includes(e.key)){e.preventDefault();e.stopImmediatePropagation();}
+ if(e.key==='Escape')closeOptimalReplay();
+ if(e.key==='ArrowLeft'){stopReplayAuto();showReplayStep(replayStep-1);}
+ if(e.key==='ArrowRight'){stopReplayAuto();showReplayStep(replayStep+1);}
+ if(e.key===' '){$('replayPlay').click();}
+},true);
+
 reset();loadD1Archive();requestAnimationFrame(render);
 })();
 </script>

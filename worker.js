@@ -103,8 +103,15 @@ async function attempt(request,db){
   const write=await db.prepare('INSERT OR IGNORE INTO first_attempts (puzzle_number, anonymous_player_id, moves, elapsed_seconds, trace_sha256) VALUES (?,?,?,?,?)')
     .bind(puzzleNumber,playerId,steps.length,elapsed,hash).run();
   const agg=await db.prepare('SELECT COUNT(*) as count, ROUND(AVG(moves),1) as average FROM first_attempts WHERE puzzle_number=?').bind(puzzleNumber).first();
+  // Only a verified completed play can obtain an optimal route.
+  // Routes live exclusively in D1, not in this public Worker or game assets.
+  const sol=await db.prepare('SELECT route FROM solution_routes WHERE puzzle_number=?').bind(puzzleNumber).first();
+  const optimalRoute=sol?.route;
+  if(typeof optimalRoute!=='string'||optimalRoute.length!==p.optimum||!validateTrace(p,optimalRoute))
+    throw Error('Missing or invalid private route for puzzle '+puzzleNumber);
   return json({verified:true, firstRecorded:!!write.meta?.changes, puzzleNumber,
-    moves:steps.length, optimum:p.optimum, globalAverage:agg.average, sampleSize:agg.count});
+    moves:steps.length, optimum:p.optimum, globalAverage:agg.average, sampleSize:agg.count,
+    optimalRoute});
 }
 export default {
   async fetch(request,env){
