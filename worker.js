@@ -1,4 +1,4 @@
-// WIRLOX Factory 5.10.5 — Daily schedule (public layouts and existing game rules unchanged).
+// WIRLOX Factory 5.10.6 — Private puzzle numbering hotfix (public layouts and existing game rules unchanged).
 // The public repo includes only code; private puzzle seeds and optimal routes live in D1.
 // Future puzzles are stored in D1 and are released by Europe/Madrid calendar date.
 const TZ = 'Europe/Madrid';
@@ -192,7 +192,7 @@ async function serveFactory(request,env){
 }
 async function privateFactoryPuzzles(db){
  const rows=(await db.prepare('SELECT * FROM puzzles WHERE number >= 15 ORDER BY number').all()).results;
- return json({puzzles:rows.map(toPublicPuzzle)});
+ return json({puzzles:rows.map(p=>toPublicPuzzle(p))});
 }
 async function privateFactoryAttempt(request,db){
  if(request.headers.get('content-type')?.split(';')[0].trim()!=='application/json')return json({error:'JSON required'},415);
