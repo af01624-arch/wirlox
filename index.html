@@ -453,7 +453,6 @@ canvas#wheel{transform:translateY(65px)}
 <div class="help"><span class="legendHorizontal">●</span> Horizontal alphabet &nbsp; <span class="legendVertical">●</span> Vertical alphabet<br>14 letters · three familiar words.<br>← → position &nbsp; ↑ ↓ alter linked letters.<br>Every arrow press costs one move. Stopwatch is secondary.</div>
 <div class="tools">
  <select id="puzzle" aria-label="Choose puzzle from bank"></select>
- <button id="rearToggle" type="button" aria-pressed="false" title="Change how the back letters are displayed">Rear: readable</button>
  <button id="reset" type="button">↻ Restart</button>
  <button id="next" type="button">Next puzzle →</button>
 </div>
@@ -552,10 +551,7 @@ const mod=(a,n)=>((a%n)+n)%n;
 const closest=(alphaIndex,current)=>alphaIndex+Math.round((current-alphaIndex)/26)*26;
 const n=()=>wheel.length,hs=()=>TWO/n();
 const sessionPB=Object.create(null);
-let mirrorRear=false;
-function setMirrorRear(value){mirrorRear=!!value;$('rearToggle').textContent=mirrorRear?'Rear: mirrored':'Rear: readable';$('rearToggle').setAttribute('aria-pressed',String(mirrorRear));try{localStorage.setItem('wirlox-factory4-rear-mirrored',mirrorRear?'1':'0');}catch(e){}}
-$('rearToggle').addEventListener('click',()=>setMirrorRear(!mirrorRear));
-try{setMirrorRear(localStorage.getItem('wirlox-factory4-rear-mirrored')==='1');}catch(e){setMirrorRear(false);}
+const mirrorRear=true; // Rear letters always mirrored: no option to show them readable.
 function getPB(){const key=PUZZLES[puzzleIndex].name;if(sessionPB[key]!=null)return sessionPB[key];try{const value=Number(localStorage.getItem('wirlox-factory4-'+key))||null;if(value!=null)sessionPB[key]=value;return value;}catch(e){return null;}}
 function savePB(){const key=PUZZLES[puzzleIndex].name;const best=getPB();if(best===null||moves<best){sessionPB[key]=moves;try{localStorage.setItem('wirlox-factory4-'+key,String(moves));}catch(e){}}}
 const sessionReview=Object.create(null);
