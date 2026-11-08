@@ -1101,7 +1101,42 @@ function render(t){
 window.__wheelTest={getState:()=>wheel.map(i=>ABC[i]).join(''),getCursor:()=>cursor,
  getWords:()=>PUZZLES[puzzleIndex].words.slice(),getMirrorRear:()=>mirrorRear,getReference:()=>PUZZLES[puzzleIndex].reference,getPuzzle:()=>PUZZLES[puzzleIndex].name,getLevel:()=>level,getMoves:()=>moves,getTime:()=>timeMs(),getScore:()=>lastRunScore,
  getAudioState:()=>clickContext?.state||"not initialized",move,reset,start:()=>{if(!gameRunning){gameRunning=true;activeSince=performance.now();$('readyOverlay').hidden=true;}},findCurrent:()=>findWord(PUZZLES[puzzleIndex].words[Math.min(level,PUZZLES[puzzleIndex].words.length-1)])};
-reset();requestAnimationFrame(render);
+// Factory 5.5: connect the existing archive screen to public D1 puzzle banks 03–04.
+// Daily puzzles stay locked; the original 14 puzzles remain playable if D1 fails.
+async function loadD1Archive(){
+ try{
+  const response=await fetch('/api/state',{cache:'no-store'});
+  if(!response.ok)throw new Error('Archive API status '+response.status);
+  const state=await response.json();
+  if(!Array.isArray(state.archive))throw new Error('Archive data missing');
+  const extra=state.archive.slice().sort((a,b)=>a.number-b.number);
+  if(extra.length!==14||extra.some((p,i)=>
+    p.number!==i+15||typeof p.name!=='string'||!p.name||
+    typeof p.mood!=='string'||!/^[A-Z]{14}$/.test(p.start||'')||
+    !Array.isArray(p.words)||p.words.length!==3||
+    p.words.some(w=>typeof w!=='string'||!/^[A-Z]+$/.test(w))||
+    !Number.isFinite(p.reference)||!Number.isFinite(p.excellent)||
+    !Number.isFinite(p.good)||!Number.isFinite(p.average)
+  ))throw new Error('D1 archive incomplete or invalid');
+  PUZZLES.push(...extra.map(p=>({
+    name:p.name,day:p.day,mood:p.mood,mode:'14 letters · 3 words',
+    start:p.start,words:p.words,reference:p.reference,
+    excellent:p.excellent,good:p.good,average:p.average
+  })));
+  $('puzzle').innerHTML=PUZZLES.map((p,i)=>
+    `<option value="${i}">${puzzleLabel(i)} · ${p.words.join(' / ')}</option>`).join('');
+  updateUI();
+  if(!$('archiveView').hidden)showArchive();
+  document.title='WIRLOX · Puzzle Banks 01–04 · Factory 5.5';
+  const version=document.querySelector('.version');
+  if(version)version.textContent='· FACTORY 5.5 · BANKS 01–04';
+  const archiveTitle=$('archiveView').querySelector('.eyebrow');
+  if(archiveTitle)archiveTitle.textContent='WIRLOX · PUZZLE BANKS 01–04';
+ }catch(error){
+  console.warn('WIRLOX D1 archive unavailable; original 14 puzzles still playable.',error);
+ }
+}
+reset();loadD1Archive();requestAnimationFrame(render);
 })();
 </script>
 </body>
