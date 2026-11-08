@@ -113,12 +113,100 @@ async function attempt(request,db){
     moves:steps.length, optimum:p.optimum, globalAverage:agg.average, sampleSize:agg.count,
     optimalRoute});
 }
+
+// Factory 5.10.2 private gate. The access key is a Cloudflare Worker SECRET,
+// never a source-code constant. A signed HttpOnly session lasts 14 days.
+const FACTORY_COOKIE='wirlox_factory_session';
+const FACTORY_SESSION_SECONDS=14*24*60*60;
+const FACTORY_MAX_PUZZLE=1000;
+const FACTORY_LOGIN_HTML="<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>WIRLOX · Private Factory</title><meta name=\"robots\" content=\"noindex,nofollow\"><style>html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,sans-serif;background:#090f1b;color:#e7f1fd}body{display:grid;min-height:100dvh;place-items:center}.card{box-sizing:border-box;width:min(420px,92vw);padding:28px;border:1px solid #334a66;border-radius:18px;background:#152138;box-shadow:0 18px 55px #0007}h1{margin:0 0 8px;font-size:26px;letter-spacing:.10em}p{color:#adbed5;line-height:1.5}label{display:block;margin:22px 0 9px;font-size:13px}input{box-sizing:border-box;width:100%;padding:13px;border:1px solid #6688a8;border-radius:8px;background:#0e182a;color:#fff;font-size:16px}button{width:100%;padding:13px;margin-top:15px;border:1px solid #83c6ee;border-radius:9px;background:#224767;color:#fff;font-size:16px;font-weight:700;cursor:pointer}#error{color:#ffb9b9;min-height:1em}</style></head><body><main class=\"card\"><h1>WIRLOX</h1><p>Private Factory · puzzle testing only.<br>The public game is unchanged.</p><form id=\"gate\"><label for=\"password\">Private access key</label><input id=\"password\" type=\"password\" autocomplete=\"current-password\" required autofocus><button type=\"submit\">Open private puzzles</button><p id=\"error\" role=\"status\"></p></form></main><script>document.getElementById('gate').addEventListener('submit',async e=>{e.preventDefault();const b=e.target.querySelector('button');b.disabled=true;document.getElementById('error').textContent='';try{const r=await fetch('/api/factory/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:document.getElementById('password').value}),cache:'no-store'});if(!r.ok){document.getElementById('error').textContent=r.status===401?'Access key not recognised.':'Private access unavailable.';return;}location.replace('/factory');}catch{document.getElementById('error').textContent='Unable to connect.';}finally{b.disabled=false;}});</script></body></html>";
+const FACTORY_HEADERS={...NO_CACHE,'X-Robots-Tag':'noindex, nofollow','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY'};
+function strongFactoryKey(env){return typeof env.FACTORY_ACCESS_KEY==='string'&&env.FACTORY_ACCESS_KEY.length>=24;}
+function bytesToHex(bytes){return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');}
+function equalHex(a,b){
+ if(typeof a!=='string'||a.length!==b.length)return false;
+ let mismatch=0;for(let i=0;i<b.length;i++)mismatch|=a.charCodeAt(i)^b.charCodeAt(i);
+ return mismatch===0;
+}
+async function digest(value){return bytesToHex(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value))));}
+async function signature(secret, message){
+ const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+ const signed=await crypto.subtle.sign('HMAC',key,new TextEncoder().encode('WIRLOX-FACTORY-v1:'+message));
+ return bytesToHex(new Uint8Array(signed));
+}
+async function hasFactorySession(request,env){
+ if(!strongFactoryKey(env))return false;
+ const cookie=(request.headers.get('Cookie')||'').split(';').map(s=>s.trim())
+  .find(s=>s.startsWith(FACTORY_COOKIE+'='));
+ if(!cookie)return false;
+ const token=cookie.slice(FACTORY_COOKIE.length+1);
+ const match=/^(\d{10})\.([a-f0-9-]{36})\.([a-f0-9]{64})$/.exec(token);
+ if(!match || Number(match[1])<Math.floor(Date.now()/1000))return false;
+ const message=match[1]+'.'+match[2];
+ return equalHex(match[3],await signature(env.FACTORY_ACCESS_KEY,message));
+}
+async function loginFactory(request,env){
+ if(!strongFactoryKey(env))return json({error:'Private access not configured'},503);
+ if(request.headers.get('Origin')!==new URL(request.url).origin)return json({error:'Not allowed'},403);
+ if(request.headers.get('content-type')?.split(';')[0].trim()!=='application/json')return json({error:'JSON required'},415);
+ if(Number(request.headers.get('content-length')||0)>1024)return json({error:'Too large'},413);
+ let input;try{input=await request.json();}catch{return json({error:'Invalid JSON'},400);}
+ if(typeof input?.key!=='string'||input.key.length>256)return json({error:'Invalid access key'},401);
+ const [candidate,expected]=await Promise.all([digest(input.key),digest(env.FACTORY_ACCESS_KEY)]);
+ if(!equalHex(candidate,expected))return json({error:'Invalid access key'},401);
+ const expiry=String(Math.floor(Date.now()/1000)+FACTORY_SESSION_SECONDS);
+ const message=expiry+'.'+crypto.randomUUID();
+ const token=message+'.'+await signature(env.FACTORY_ACCESS_KEY,message);
+ const headers=new Headers({...NO_CACHE,'Set-Cookie':`${FACTORY_COOKIE}=${token}; Max-Age=${FACTORY_SESSION_SECONDS}; Path=/; Secure; HttpOnly; SameSite=Strict`});
+ return Response.json({ok:true},{headers});
+}
+async function serveFactory(request,env){
+ if(!strongFactoryKey(env))return new Response('Factory access not yet configured.',{status:503,headers:FACTORY_HEADERS});
+ if(!await hasFactorySession(request,env))return new Response(FACTORY_LOGIN_HTML,{headers:{...FACTORY_HEADERS,'Content-Type':'text/html; charset=utf-8'}});
+ const url=new URL(request.url);url.pathname='/index.html';url.search='';
+ const asset=await env.ASSETS.fetch(new Request(url,request));
+ const headers=new Headers(asset.headers);
+ Object.entries(FACTORY_HEADERS).forEach(([k,v])=>headers.set(k,v));
+ return new Response(asset.body,{status:asset.status,headers});
+}
+async function privateFactoryPuzzles(db){
+ const rows=(await db.prepare('SELECT * FROM puzzles WHERE number >= 15 ORDER BY number').all()).results;
+ return json({puzzles:rows.map(toPublicPuzzle)});
+}
+async function privateFactoryAttempt(request,db){
+ if(request.headers.get('content-type')?.split(';')[0].trim()!=='application/json')return json({error:'JSON required'},415);
+ if(Number(request.headers.get('content-length')||0)>4096)return json({error:'Too large'},413);
+ let data;try{data=await request.json();}catch{return json({error:'Invalid JSON'},400);}
+ const number=Number(data.puzzleNumber),steps=data.steps,elapsed=Number(data.elapsedSeconds);
+ if(!Number.isInteger(number)||number<1||number>FACTORY_MAX_PUZZLE||
+    typeof data.playerId!=='string'||!UUID_RE.test(data.playerId)||
+    typeof steps!=='string'||steps.length>MAX_TRACE||
+    !Number.isInteger(elapsed)||elapsed<0||elapsed>86400*14)return json({error:'Invalid submission'},422);
+ const p=await db.prepare('SELECT * FROM puzzles WHERE number=?').bind(number).first();
+ if(!p||!validateTrace(p,steps))return json({error:'Completion cannot be verified'},422);
+ const route=await db.prepare('SELECT route FROM solution_routes WHERE puzzle_number=?').bind(number).first();
+ if(typeof route?.route!=='string'||route.route.length!==p.optimum||!validateTrace(p,route.route))
+  return json({error:'Private optimal route missing or invalid'},503);
+ // No public attempts, global averages, or first-play statistics are written.
+ return json({verified:true,firstRecorded:false,puzzleNumber:number,moves:steps.length,
+   optimum:p.optimum,globalAverage:null,sampleSize:0,optimalRoute:route.route});
+}
+
 export default {
   async fetch(request,env){
     const url=new URL(request.url);
+    if((url.pathname==='/factory'||url.pathname==='/factory/')&&request.method==='GET')return serveFactory(request,env);
     if(!url.pathname.startsWith('/api/'))return env.ASSETS.fetch(request);
-    if(!env.DB)return json({error:'D1 binding not configured'},503);
     try{
+      if(url.pathname==='/api/factory/login'&&request.method==='POST')return loginFactory(request,env);
+      if(url.pathname.startsWith('/api/factory/')){
+        if(!await hasFactorySession(request,env))return json({error:'Private access required'},401);
+        if(!env.DB)return json({error:'D1 binding not configured'},503);
+        if(url.pathname==='/api/factory/puzzles'&&request.method==='GET')return privateFactoryPuzzles(env.DB);
+        if(url.pathname==='/api/factory/attempt'&&request.method==='POST')return privateFactoryAttempt(request,env.DB);
+        return json({error:'Not found'},404);
+      }
+      if(!env.DB)return json({error:'D1 binding not configured'},503);
       if(url.pathname==='/api/health'&&request.method==='GET'){
         const [row,start]=await Promise.all([env.DB.prepare('SELECT COUNT(*) as total FROM puzzles').first(),getLaunchDate(env.DB)]);
         return json({ok:true,puzzleCount:row.total,dailyConfigured:validStart(start),timezone:TZ});

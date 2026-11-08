@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>WIRLOX · Puzzle Banks 01–02 · Factory 5.10.1</title>
+<title>WIRLOX · Puzzle Banks 01–02 · Factory 5.10.2</title>
 <style>
   :root{color-scheme:dark;--blue:#8bd4ff;--warm:#ffe69a;--muted:#99a8c4;--panel:rgba(8,15,34,.72)}
   *{box-sizing:border-box}
@@ -547,7 +547,7 @@ canvas#wheel{transform:translateY(65px)}
  font-size:12px;line-height:1.45;color:#c1daf1}
 #onlineResult[hidden]{display:none!important}
 
-/* Factory 5.10.1: a completion label must fit inside the five-letter word box. */
+/* Factory 5.10.2: a completion label must fit inside the five-letter word box. */
 #focusUI .focusCurrent.replayComplete{
  font-size:clamp(25px,2.9vw,38px);letter-spacing:.045em;padding-left:.045em;white-space:nowrap
 }
@@ -587,7 +587,7 @@ canvas#wheel{transform:translateY(65px)}
 @media(min-width:701px) and (max-height:550px){#solutionReplay .replayPanel{top:7px;bottom:auto;transform:none;max-height:calc(100dvh - 14px);padding:9px 12px;gap:5px}.replayNotation{max-height:67px;min-height:35px;flex:0 1 auto}.replayHeading h2{font-size:18px}.replayFoot{display:none}.replayExplanation{min-height:0;padding:8px}.replayActions button{padding:7px}}
 @media(prefers-reduced-motion:reduce){.replayNotation button{transition:none}}
 
-/* Factory 5.10.1: the APPROVED concise result hierarchy on phone AND desktop.
+/* Factory 5.10.2: the APPROVED concise result hierarchy on phone AND desktop.
    Existing result statistics and feedback remain intact in the detailed panel. */
 #results{z-index:12;width:min(470px,calc(100vw - 30px));min-width:0;max-width:none;max-height:min(88dvh,800px);padding:12px 16px;overflow:auto;
  background:linear-gradient(165deg,rgba(18,37,65,.99),rgba(8,20,40,.99));border:1px solid rgba(166,200,240,.38);border-radius:18px;
@@ -724,7 +724,7 @@ canvas#wheel{transform:translateY(65px)}
 </div>
 <div class="head">
  <div class="panel">
-  <h1>WIRLOX <span class="version">· FACTORY 5.10.1 · BANKS 01–02</span></h1>
+  <h1>WIRLOX <span class="version">· FACTORY 5.10.2 · BANKS 01–02</span></h1>
   <div class="sub">← → position · ↑ ↓ change letter · opposite pair moves with it</div>
   <div class="dayMood" id="dayMood">PUZZLE 01 / 14 · WARM-UP · 14 LETTERS</div>
   <div class="statLine">Time: <strong id="timer">0:00</strong> <span class="sep">|</span> Moves: <strong id="moves">0</strong> <span class="sep">|</span> PB: <strong id="pb">—</strong> <span class="sep">|</span> Word: <strong id="wordCount">1 / 3</strong><span id="minimumHeader" hidden> <span class="sep">|</span> Perfect: <strong id="minimumHeaderScore">—</strong></span></div>
@@ -847,6 +847,8 @@ canvas#wheel{transform:translateY(65px)}
 (() => {
 'use strict';
 const ABC='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+// Isolated, authenticated Factory route; the ordinary public interface is unchanged.
+const FACTORY_PRIVATE=location.pathname.replace(/\/+$/,'')==='/factory';
 const PUZZLES=[{"name":"F4-Monday","day":"Monday","mood":"Warm-up","mode":"14 letters \u00b7 3 words","start":"NTCRTYINVANRJE","words":["APPLE","PLANT","TRAIN"],"reference":20,"excellent":23,"good":28,"average":36},{"name":"F4-Tuesday","day":"Tuesday","mood":"Find the links","mode":"14 letters \u00b7 3 words","start":"REBGSIZERNRVSI","words":["MOUSE","BREAD","RIVER"],"reference":21,"excellent":24,"good":29,"average":37},{"name":"F4-Wednesday","day":"Wednesday","mood":"Plan ahead","mode":"14 letters \u00b7 3 words","start":"SWOPCDQSWBTSOJ","words":["BRUSH","STONE","GHOST"],"reference":22,"excellent":25,"good":30,"average":38},{"name":"F4-Thursday","day":"Thursday","mood":"Hidden leverage","mode":"14 letters \u00b7 3 words","start":"MCNNXHQRAKMIPX","words":["CLOUD","TRAIN","FLAME"],"reference":21,"excellent":24,"good":29,"average":37},{"name":"F4-Friday","day":"Friday","mood":"The challenge","mode":"14 letters \u00b7 3 words","start":"PEAMFPAPGIDKBX","words":["GRAPE","FIELD","CANDY"],"reference":26,"excellent":29,"good":34,"average":42},{"name":"F4-Saturday","day":"Saturday","mood":"Expert wheel","mode":"14 letters \u00b7 3 words","start":"RIBLJDSEARIGNF","words":["SHINE","BRICK","DREAM"],"reference":26,"excellent":29,"good":34,"average":42},{"name":"F4-Sunday","day":"Sunday","mood":"The slow spin","mode":"14 letters \u00b7 3 words","start":"YFACHREBOZZWAT","words":["BEACH","GREEN","WATER"],"reference":23,"excellent":26,"good":31,"average":39},{"name":"B02-08","day":"Puzzle 08","mood":"First connections","mode":"14 letters \u00b7 3 words","start":"QTLKGOPJSNDBTK","words":["SPEAR","PEARL","LEMON"],"reference":22,"excellent":25,"good":30,"average":38},{"name":"B02-09","day":"Puzzle 09","mood":"Finding the link","mode":"14 letters \u00b7 3 words","start":"GDAFCQOUCALBCS","words":["SCALE","CLEAR","REACH"],"reference":23,"excellent":26,"good":31,"average":39},{"name":"B02-10","day":"Puzzle 10","mood":"Across the wheel","mode":"14 letters \u00b7 3 words","start":"EMWAVLBVKMBMZF","words":["BLADE","DELTA","ATLAS"],"reference":23,"excellent":26,"good":31,"average":39},{"name":"B02-11","day":"Puzzle 11","mood":"Look twice","mode":"14 letters \u00b7 3 words","start":"RTHIOJFFUIIICM","words":["NIGHT","THING","GIANT"],"reference":24,"excellent":27,"good":32,"average":40},{"name":"B02-12","day":"Puzzle 12","mood":"The crossover","mode":"14 letters \u00b7 3 words","start":"DTJGSRRSDIDDUU","words":["CIDER","DRIFT","FROST"],"reference":24,"excellent":27,"good":32,"average":40},{"name":"B02-13","day":"Puzzle 13","mood":"Hidden leverage","mode":"14 letters \u00b7 3 words","start":"TLISJLUDSIONTT","words":["TULIP","PILOT","OLIVE"],"reference":25,"excellent":28,"good":33,"average":41},{"name":"B02-14","day":"Puzzle 14","mood":"The challenge","mode":"14 letters \u00b7 3 words","start":"RLWNDTBCMMPAIC","words":["CROWN","WAGON","NOBLE"],"reference":26,"excellent":29,"good":34,"average":42}];
 const puzzleLabel = i => `Puzzle ${String(i+1).padStart(2,'0')}`;
 const puzzleTag = i => `PUZZLE ${String(i+1).padStart(2,'0')} / ${String(PUZZLES.length).padStart(2,'0')}`;
@@ -948,9 +950,9 @@ async function submitCompletedRun(){
   result.textContent='Online verification unavailable for this run; your local personal best is preserved.';
   return;
  }
- result.textContent='Verifying completed run and checking global first-attempt average…';
+ result.textContent=FACTORY_PRIVATE?'Verifying private Factory run…':'Verifying completed run and checking global first-attempt average…';
  try{
-  const response=await fetch('/api/attempt',{
+  const response=await fetch(FACTORY_PRIVATE?'/api/factory/attempt':'/api/attempt',{
    method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',
    body:JSON.stringify({puzzleNumber,playerId:getAnonymousPlayerId(),steps,elapsedSeconds})
   });
@@ -968,9 +970,11 @@ async function submitCompletedRun(){
     $('optimalReplayButton').hidden=false;
     $('minimumExplanation').textContent='This is the mathematically proven minimum. Study the perfect route below.';
   }
-  result.textContent=(data.firstRecorded
-   ?'First completed attempt recorded. '
-   :'Your first attempt was already recorded. ')+summary;
+  result.textContent=FACTORY_PRIVATE
+   ?'Private Factory run verified. Not counted in public first attempts or global averages.'
+   :(data.firstRecorded
+     ?'First completed attempt recorded. '
+     :'Your first attempt was already recorded. ')+summary;
  }catch(error){
   if(run===runId&&finished&&puzzleIndex+1===puzzleNumber)
    result.textContent='Online verification unavailable; your local personal best is unaffected.';
@@ -983,7 +987,7 @@ const clockText=sec=>`${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`;
 function freezeTime(){if(gameRunning&&!transition&&!finished){elapsedMs+=performance.now()-activeSince;activeSince=0;}}
 function resumeTime(){if(gameRunning&&!finished)activeSince=performance.now();}
 function refreshClock(){const sec=Math.floor(timeMs()/1000);if(sec!==lastShownSeconds){lastShownSeconds=sec;$('timer').textContent=clockText(sec);$('focusTime').textContent=clockText(sec);$('timer').classList.toggle('overtime',sec>=300);}}
-function scoreKey(){return 'wirlox-factory4-fastest-'+PUZZLES[puzzleIndex].name;}
+function scoreKey(){return (FACTORY_PRIVATE?'wirlox-private-fastest-':'wirlox-factory4-fastest-')+PUZZLES[puzzleIndex].name;}
 function getScorePB(){try{return JSON.parse(localStorage.getItem(scoreKey())||'null');}catch(e){return null;}}
 function saveScorePB(score,seconds){const prev=getScorePB();if(!prev||score<prev.score||(score===prev.score&&seconds<prev.seconds)){try{localStorage.setItem(scoreKey(),JSON.stringify({score,seconds,moves}));}catch(e){}}}
 const mod=(a,n)=>((a%n)+n)%n;
@@ -991,20 +995,20 @@ const closest=(alphaIndex,current)=>alphaIndex+Math.round((current-alphaIndex)/2
 const n=()=>wheel.length,hs=()=>TWO/n();
 const sessionPB=Object.create(null);
 const mirrorRear=true; // Rear letters always mirrored: no option to show them readable.
-function getPB(){const key=PUZZLES[puzzleIndex].name;if(sessionPB[key]!=null)return sessionPB[key];try{const value=Number(localStorage.getItem('wirlox-factory4-'+key))||null;if(value!=null)sessionPB[key]=value;return value;}catch(e){return null;}}
-function savePB(){const key=PUZZLES[puzzleIndex].name;const best=getPB();if(best===null||moves<best){sessionPB[key]=moves;try{localStorage.setItem('wirlox-factory4-'+key,String(moves));}catch(e){}}}
+function getPB(){const key=PUZZLES[puzzleIndex].name;if(sessionPB[key]!=null)return sessionPB[key];try{const value=Number(localStorage.getItem((FACTORY_PRIVATE?'wirlox-private-':'wirlox-factory4-')+key))||null;if(value!=null)sessionPB[key]=value;return value;}catch(e){return null;}}
+function savePB(){const key=PUZZLES[puzzleIndex].name;const best=getPB();if(best===null||moves<best){sessionPB[key]=moves;try{localStorage.setItem((FACTORY_PRIVATE?'wirlox-private-':'wirlox-factory4-')+key,String(moves));}catch(e){}}}
 const sessionReview=Object.create(null);
-function reviewKey(){return 'wirlox-factory4-review-'+PUZZLES[puzzleIndex].name;}
+function reviewKey(){return (FACTORY_PRIVATE?'wirlox-private-review-':'wirlox-factory4-review-')+PUZZLES[puzzleIndex].name;}
 function readReview(){const key=reviewKey();if(sessionReview[key])return sessionReview[key];try{const raw=localStorage.getItem(key);if(raw)return JSON.parse(raw);}catch(e){}return {feel:'',note:''};}
 function writeReview(o){const key=reviewKey();sessionReview[key]=o;try{localStorage.setItem(key,JSON.stringify(o));}catch(e){}}
 function updateFeedback(){const obj=readReview();$('feedbackNote').value=obj.note||'';document.querySelectorAll('[data-feel]').forEach(b=>b.classList.toggle('selected',b.dataset.feel===obj.feel));$('copyStatus').textContent='';$('copyFallback').style.display='none';}
 function saveReview(){const old=readReview();writeReview({feel:old.feel,note:$('feedbackNote').value.trim()});$('copyStatus').textContent='Feedback saved locally for this puzzle.';}
-function bankNotes(){return ['WIRLOX — Puzzle Banks 01–02',...PUZZLES.map((p,i)=>{
+function bankNotes(){return [FACTORY_PRIVATE?'WIRLOX — Private Factory':'WIRLOX — Puzzle Banks 01–02',...PUZZLES.map((p,i)=>{
  const stored=sessionPB[p.name];let best=stored??null;
- if(best===null){try{best=Number(localStorage.getItem('wirlox-factory4-'+p.name))||null;}catch(e){}}
- const key='wirlox-factory4-review-'+p.name;let r=sessionReview[key]||null;
+ if(best===null){try{best=Number(localStorage.getItem((FACTORY_PRIVATE?'wirlox-private-':'wirlox-factory4-')+p.name))||null;}catch(e){}}
+ const key=(FACTORY_PRIVATE?'wirlox-private-review-':'wirlox-factory4-review-')+p.name;let r=sessionReview[key]||null;
  if(!r){try{r=JSON.parse(localStorage.getItem(key)||'null');}catch(e){}}
- let timed=null;try{timed=JSON.parse(localStorage.getItem('wirlox-factory4-fastest-'+p.name)||'null');}catch(e){}
+ let timed=null;try{timed=JSON.parse(localStorage.getItem((FACTORY_PRIVATE?'wirlox-private-fastest-':'wirlox-factory4-fastest-')+p.name)||'null');}catch(e){}
  const timedLabel=timed?` | best-time-at-PB ${clockText(timed.seconds)} (${timed.moves} moves)`:'';
  const gap=best===null?'—':(best-p.reference>=0?'+'+(best-p.reference):''+(best-p.reference));
  return `${p.mode} · ${puzzleLabel(i)}: ${p.words.join(' / ')} | PB ${best??'not played'} | perfect ${best===null?'hidden':p.reference} | gap ${gap} | ${r?.feel||'no rating'}${r?.note?' | '+r.note:''}${timedLabel}`;
@@ -1468,7 +1472,44 @@ function fromD1(p){
   start:p.start,words:p.words,reference:p.reference,
   excellent:p.excellent,good:p.good,average:p.average};
 }
+// Factory 5.10.2: authenticated, private view of all D1 puzzles, including
+// unreleased daily and Bank 06. Never embed those puzzles in public HTML.
+// It reuses the EXISTING wheel/game/results/replay layouts unchanged.
+async function loadPrivateFactoryPuzzles(){
+ if(activeApiRefresh)return activeApiRefresh;
+ activeApiRefresh=(async()=>{
+  try{
+   const response=await fetch('/api/factory/puzzles',{cache:'no-store',credentials:'same-origin'});
+   if(response.status===401){location.replace('/factory');return;}
+   if(!response.ok)throw Error('Private Factory API status '+response.status);
+   const payload=await response.json();
+   const extra=payload.puzzles;
+   // First 14 puzzles remain part of the unchanged original HTML.
+   // The private API supplies consecutively numbered rows 15 to 42.
+   if(!Array.isArray(extra)||extra.length<21||extra.length>1000||
+      extra.some((p,i)=>!validRemotePuzzle(p,i+15)))
+    throw Error('Private Factory puzzle bank incomplete or invalid');
+   PUZZLES.splice(14,PUZZLES.length-14,...extra.map(fromD1));
+   $('puzzle').innerHTML=PUZZLES.map((p,i)=>
+    `<option value="${i}">${puzzleLabel(i)} · ${p.words.join(' / ')}</option>`).join('');
+   $('puzzle').value=String(puzzleIndex);
+   updateUI();
+   if(!$('archiveView').hidden)showArchive();
+   else if(!$('quickView').hidden)showQuickReady();
+   document.title='WIRLOX · Private Factory · 5.10.2';
+   const version=document.querySelector('.version');
+   if(version)version.textContent='· FACTORY 5.10.2 · PRIVATE';
+   const archiveTitle=$('archiveView').querySelector('.eyebrow');
+   if(archiveTitle)archiveTitle.textContent='WIRLOX · PRIVATE FACTORY · '+PUZZLES.length+' PUZZLES';
+  }catch(error){
+   console.error('Private Factory unavailable:',error);
+   alert('Private Factory could not load its puzzles. Please try again once the private D1 seed is installed.');
+  }
+ })();
+ try{return await activeApiRefresh;}finally{activeApiRefresh=null;}
+}
 async function loadD1Archive(trigger='initial'){
+ if(FACTORY_PRIVATE)return loadPrivateFactoryPuzzles();
  if(activeApiRefresh)return activeApiRefresh;
  lastApiRequestPerf=performance.now();
  activeApiRefresh=(async()=>{
@@ -1539,9 +1580,9 @@ async function loadD1Archive(trigger='initial'){
   // daily; the wheel and active puzzle are never reset while playing.
   if(!$('archiveView').hidden)showArchive();
   updateDailyCountdown();
-  document.title='WIRLOX · Puzzle Banks 01–04 · Factory 5.10.1';
+  document.title='WIRLOX · Puzzle Banks 01–04 · Factory 5.10.2';
   const version=document.querySelector('.version');
-  if(version)version.textContent='· FACTORY 5.10.1 · BANKS 01–04';
+  if(version)version.textContent='· FACTORY 5.10.2 · BANKS 01–04';
   const archiveTitle=$('archiveView').querySelector('.eyebrow');
   if(archiveTitle)archiveTitle.textContent='WIRLOX · PUZZLE BANKS 01–04';
  }catch(error){
