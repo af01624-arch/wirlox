@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>WIRLOX · Puzzle Banks 01–02 · Factory 5.4</title>
+<title>WIRLOX · Puzzle Banks 01–02 · Factory 5.6</title>
 <style>
   :root{color-scheme:dark;--blue:#8bd4ff;--warm:#ffe69a;--muted:#99a8c4;--panel:rgba(8,15,34,.72)}
   *{box-sizing:border-box}
@@ -531,6 +531,10 @@ canvas#wheel{transform:translateY(65px)}
  #quickView .splashDailyDate{font-size:10px}
 }
 
+/* Factory 5.6: compact online verification status on completed runs. */
+#onlineResult{margin:9px 0 11px;padding:9px 12px;border-top:1px solid rgba(174,206,255,.16);
+ font-size:12px;line-height:1.45;color:#c1daf1}
+#onlineResult[hidden]{display:none!important}
 </style>
 </head>
 <body>
@@ -554,7 +558,7 @@ canvas#wheel{transform:translateY(65px)}
 </div>
 <div class="head">
  <div class="panel">
-  <h1>WIRLOX <span class="version">· FACTORY 5.4 · BANKS 01–02</span></h1>
+  <h1>WIRLOX <span class="version">· FACTORY 5.6 · BANKS 01–02</span></h1>
   <div class="sub">← → position · ↑ ↓ change letter · opposite pair moves with it</div>
   <div class="dayMood" id="dayMood">PUZZLE 01 / 14 · WARM-UP · 14 LETTERS</div>
   <div class="statLine">Time: <strong id="timer">0:00</strong> <span class="sep">|</span> Moves: <strong id="moves">0</strong> <span class="sep">|</span> PB: <strong id="pb">—</strong> <span class="sep">|</span> Word: <strong id="wordCount">1 / 3</strong><span id="minimumHeader" hidden> <span class="sep">|</span> Perfect: <strong id="minimumHeaderScore">—</strong></span></div>
@@ -595,6 +599,7 @@ canvas#wheel{transform:translateY(65px)}
    <div class="minimumExplanation" id="minimumExplanation">The fewest possible moves under the wheel rules.</div>
  </div>
  <p id="finalDetail"></p>
+ <div id="onlineResult" aria-live="polite" hidden></div>
  <div class="rating" id="rating">
    <div class="ratingTitle">HOW DID THIS PUZZLE FEEL?</div>
    <div class="ratingButtons">
@@ -654,6 +659,56 @@ let horizontalPhase=0,targetHorizontalPhase=0,verticalPhase=0,targetVerticalPhas
 let width=0,height=0,dpr=1,transition=false,finished=false,winPositions=[],lastFrame=performance.now(),toastTimeout=0,stageTimeout=0;
 // Count actual elapsed play time, excluding the forced one-second animation between words.
 let gameRunning=false,elapsedMs=0,activeSince=0,lastShownSeconds=-1,lastRunScore=null;
+// Track only accepted arrow moves, without changing the rules or the timer.
+let moveTrace='',runId=0;
+let anonymousIdInMemory=null;
+const ANON_PLAYER_KEY='wirlox-anonymous-player-v1';
+function getAnonymousPlayerId(){
+ const valid=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
+ try{const stored=localStorage.getItem(ANON_PLAYER_KEY);if(stored&&valid.test(stored))return stored;}catch(e){}
+ if(!anonymousIdInMemory){
+  if(crypto.randomUUID)anonymousIdInMemory=crypto.randomUUID();
+  else{
+   const bytes=crypto.getRandomValues(new Uint8Array(16));
+   bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;
+   const hex=Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+   anonymousIdInMemory=[hex.slice(0,8),hex.slice(8,12),hex.slice(12,16),hex.slice(16,20),hex.slice(20)].join('-');
+  }
+ }
+ try{localStorage.setItem(ANON_PLAYER_KEY,anonymousIdInMemory);}catch(e){}
+ return anonymousIdInMemory;
+}
+// The Worker independently replays the movement trace and stores only the
+// first verified completion for each anonymous browser ID and puzzle number.
+async function submitCompletedRun(){
+ const run=runId,puzzleNumber=puzzleIndex+1,steps=moveTrace,elapsedSeconds=Math.floor(timeMs()/1000);
+ const result=$('onlineResult');result.hidden=false;
+ if(!steps||steps.length!==moves||steps.length>700){
+  result.textContent='Online verification unavailable for this run; your local personal best is preserved.';
+  return;
+ }
+ result.textContent='Verifying completed run and checking global first-attempt average…';
+ try{
+  const response=await fetch('/api/attempt',{
+   method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',
+   body:JSON.stringify({puzzleNumber,playerId:getAnonymousPlayerId(),steps,elapsedSeconds})
+  });
+  const data=await response.json();
+  if(!response.ok||data.verified!==true)throw new Error('Unable to verify result');
+  if(run!==runId||!finished||puzzleIndex+1!==puzzleNumber)return;
+  const sample=Number(data.sampleSize),average=Number(data.globalAverage);
+  const summary=Number.isFinite(average)&&Number.isInteger(sample)&&sample>0
+   ?`Global first-attempt average: ${average.toFixed(1)} moves (${sample} ${sample===1?'result':'results'}).`
+   :'Global comparison not yet available.';
+  result.textContent=(data.firstRecorded
+   ?'First completed attempt recorded. '
+   :'Your first attempt was already recorded. ')+summary;
+ }catch(error){
+  if(run===runId&&finished&&puzzleIndex+1===puzzleNumber)
+   result.textContent='Online verification unavailable; your local personal best is unaffected.';
+ }
+}
+
 const timeMs=()=>elapsedMs+(gameRunning&&!transition&&!finished?performance.now()-activeSince:0);
 const secondsForScore=()=>Math.max(1,Math.floor(timeMs()/1000));
 const clockText=sec=>`${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`;
@@ -752,6 +807,7 @@ $('archiveList').addEventListener('click',e=>{
  puzzleIndex=Number(button.dataset.puzzle);$('puzzle').value=String(puzzleIndex);reset();
 });
 function reset(){
+ runId++;moveTrace='';$('onlineResult').hidden=true;
  if(stageTimeout)clearTimeout(stageTimeout);if(toastTimeout)clearTimeout(toastTimeout);
  const p=PUZZLES[puzzleIndex];wheel=[...p.start].map(ch=>ABC.indexOf(ch));
  gameRunning=false;elapsedMs=0;activeSince=0;lastShownSeconds=-1;lastRunScore=null;
@@ -802,7 +858,7 @@ function showResults(){
    gap===0?'You achieved the mathematically proven minimum. No shorter solution exists under these rules.':
    `The mathematically proven minimum is ${gap} ${gap===1?'move':'moves'} below your result. The solution remains hidden.`;
  $('finalDetail').textContent=`${puzzleLabel(puzzleIndex)} · ${p.words.join(' · ')} | ${breakdown.join(' + ')} moves.`;
- $('results').style.display='block';updateFeedback();
+ $('results').style.display='block';updateFeedback();submitCompletedRun();
 }
 function horizontal(delta){
  if(!gameRunning||transition||finished)return;
@@ -875,6 +931,7 @@ function move(dir){
   case 'down':vertical(1);break;
   default:return;
  }
+ moveTrace+=({left:'L',right:'R',up:'U',down:'D'})[dir];
  playWheelClick();
 }
 // Wheel dragging is intentionally disabled. The wheel is visual-only.
@@ -1127,9 +1184,9 @@ async function loadD1Archive(){
     `<option value="${i}">${puzzleLabel(i)} · ${p.words.join(' / ')}</option>`).join('');
   updateUI();
   if(!$('archiveView').hidden)showArchive();
-  document.title='WIRLOX · Puzzle Banks 01–04 · Factory 5.5';
+  document.title='WIRLOX · Puzzle Banks 01–04 · Factory 5.6';
   const version=document.querySelector('.version');
-  if(version)version.textContent='· FACTORY 5.5 · BANKS 01–04';
+  if(version)version.textContent='· FACTORY 5.6 · BANKS 01–04';
   const archiveTitle=$('archiveView').querySelector('.eyebrow');
   if(archiveTitle)archiveTitle.textContent='WIRLOX · PUZZLE BANKS 01–04';
  }catch(error){
