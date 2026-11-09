@@ -353,6 +353,7 @@ canvas#wheel{transform:translateY(65px)}
 #archiveList button.currentArchive.completedArchive{border-color:#d4a25d;background:rgba(86,57,23,.22)}
 #archiveList .archiveRight{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex:1;min-width:0}
 #archiveList .archiveWords{min-width:0;text-align:right;white-space:nowrap;font-size:11px}
+@media(max-width:360px){#archiveList .archiveWords{white-space:normal;line-height:1.25}}
 #archiveList .archiveGrade{display:inline-flex;align-items:center;justify-content:center;flex:0 0 23px;
  width:23px;height:23px;border-radius:50%;font-size:11px;line-height:1;font-weight:800;
  color:#101c31;border:1px solid rgba(255,255,255,.25)}
@@ -736,7 +737,7 @@ canvas#wheel{transform:translateY(65px)}
 </div>
 <div class="head">
  <div class="panel">
-  <h1>WIRLOX <span class="version">· FACTORY 5.10.13 · BANKS 01–02</span></h1>
+  <h1>WIRLOX <span class="version">· FACTORY 5.10.14 · BANKS 01–02</span></h1>
   <div class="sub">← → position · ↑ ↓ change letter · opposite pair moves with it</div>
   <div class="dayMood" id="dayMood">PUZZLE 01 / 14 · WARM-UP · 14 LETTERS</div>
   <div class="statLine">Time: <strong id="timer">0:00</strong> <span class="sep">|</span> Moves: <strong id="moves">0</strong> <span class="sep">|</span> PB: <strong id="pb">—</strong> <span class="sep">|</span> Word: <strong id="wordCount">1 / 3</strong><span id="minimumHeader" hidden> <span class="sep">|</span> Perfect: <strong id="minimumHeaderScore">—</strong></span></div>
@@ -863,8 +864,24 @@ const ABC='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 // Isolated, authenticated Factory route; the ordinary public interface is unchanged.
 const FACTORY_PRIVATE=location.pathname.replace(/\/+$/,'')==='/factory';
 const PUZZLES=[{"name":"F4-Monday","day":"Monday","mood":"Warm-up","mode":"14 letters \u00b7 3 words","start":"NTCRTYINVANRJE","words":["APPLE","PLANT","TRAIN"],"reference":20,"excellent":23,"good":28,"average":36},{"name":"F4-Tuesday","day":"Tuesday","mood":"Find the links","mode":"14 letters \u00b7 3 words","start":"REBGSIZERNRVSI","words":["MOUSE","BREAD","RIVER"],"reference":21,"excellent":24,"good":29,"average":37},{"name":"F4-Wednesday","day":"Wednesday","mood":"Plan ahead","mode":"14 letters \u00b7 3 words","start":"SWOPCDQSWBTSOJ","words":["BRUSH","STONE","GHOST"],"reference":22,"excellent":25,"good":30,"average":38},{"name":"F4-Thursday","day":"Thursday","mood":"Hidden leverage","mode":"14 letters \u00b7 3 words","start":"MCNNXHQRAKMIPX","words":["CLOUD","TRAIN","FLAME"],"reference":21,"excellent":24,"good":29,"average":37},{"name":"F4-Friday","day":"Friday","mood":"The challenge","mode":"14 letters \u00b7 3 words","start":"PEAMFPAPGIDKBX","words":["GRAPE","FIELD","CANDY"],"reference":26,"excellent":29,"good":34,"average":42},{"name":"F4-Saturday","day":"Saturday","mood":"Expert wheel","mode":"14 letters \u00b7 3 words","start":"RIBLJDSEARIGNF","words":["SHINE","BRICK","DREAM"],"reference":26,"excellent":29,"good":34,"average":42},{"name":"F4-Sunday","day":"Sunday","mood":"The slow spin","mode":"14 letters \u00b7 3 words","start":"YFACHREBOZZWAT","words":["BEACH","GREEN","WATER"],"reference":23,"excellent":26,"good":31,"average":39},{"name":"B02-08","day":"Puzzle 08","mood":"First connections","mode":"14 letters \u00b7 3 words","start":"QTLKGOPJSNDBTK","words":["SPEAR","PEARL","LEMON"],"reference":22,"excellent":25,"good":30,"average":38},{"name":"B02-09","day":"Puzzle 09","mood":"Finding the link","mode":"14 letters \u00b7 3 words","start":"GDAFCQOUCALBCS","words":["SCALE","CLEAR","REACH"],"reference":23,"excellent":26,"good":31,"average":39},{"name":"B02-10","day":"Puzzle 10","mood":"Across the wheel","mode":"14 letters \u00b7 3 words","start":"EMWAVLBVKMBMZF","words":["BLADE","DELTA","ATLAS"],"reference":23,"excellent":26,"good":31,"average":39},{"name":"B02-11","day":"Puzzle 11","mood":"Look twice","mode":"14 letters \u00b7 3 words","start":"RTHIOJFFUIIICM","words":["NIGHT","THING","GIANT"],"reference":24,"excellent":27,"good":32,"average":40},{"name":"B02-12","day":"Puzzle 12","mood":"The crossover","mode":"14 letters \u00b7 3 words","start":"DTJGSRRSDIDDUU","words":["CIDER","DRIFT","FROST"],"reference":24,"excellent":27,"good":32,"average":40},{"name":"B02-13","day":"Puzzle 13","mood":"Hidden leverage","mode":"14 letters \u00b7 3 words","start":"TLISJLUDSIONTT","words":["TULIP","PILOT","OLIVE"],"reference":25,"excellent":28,"good":33,"average":41},{"name":"B02-14","day":"Puzzle 14","mood":"The challenge","mode":"14 letters \u00b7 3 words","start":"RLWNDTBCMMPAIC","words":["CROWN","WAGON","NOBLE"],"reference":26,"excellent":29,"good":34,"average":42}];
-const puzzleLabel = i => `Puzzle ${String(i+1).padStart(2,'0')}`;
-const puzzleTag = i => `PUZZLE ${String(i+1).padStart(2,'0')} / ${String(PUZZLES.length).padStart(2,'0')}`;
+// Factory 5.10.14: Public Daily slots are labelled by their Madrid release date.
+// Dates belong to slots, not the underlying source puzzle, so swaps stay safe.
+function dailyReleaseDate(i){
+ if(FACTORY_PRIVATE || i<28 || !/^\d{4}-\d{2}-\d{2}$/.test(dailyStartDate||''))return null;
+ const [year,month,day]=dailyStartDate.split('-').map(Number);
+ const start=new Date(Date.UTC(year,month-1,day,12));
+ if(!Number.isFinite(start.getTime())||start.toISOString().slice(0,10)!==dailyStartDate)return null;
+ start.setUTCDate(start.getUTCDate()+i-28);
+ return start;
+}
+function dailyDateLabel(i,long=false){
+ const d=dailyReleaseDate(i);
+ return d?new Intl.DateTimeFormat('en-GB',{
+  weekday:long?'long':'short',day:'numeric',month:long?'long':'short',year:'numeric',timeZone:'UTC'
+ }).format(d):null;
+}
+const puzzleLabel = i => dailyDateLabel(i) || `Puzzle ${String(i+1).padStart(2,'0')}`;
+const puzzleTag = i => dailyDateLabel(i)?.toUpperCase() || `PUZZLE ${String(i+1).padStart(2,'0')} / ${String(PUZZLES.length).padStart(2,'0')}`;
 const $=id=>document.getElementById(id);
 $('puzzle').innerHTML=PUZZLES.map((p,i)=>`<option value="${i}">${puzzleLabel(i)} · ${p.words.join(' / ')}</option>`).join('');
 const canvas=document.getElementById('wheel'),ctx=canvas.getContext('2d');
@@ -1162,7 +1179,7 @@ function updateUI(){
   $('focusPB').textContent=getPB()??'—';
 }
 // Factory 5.4: Home always opens first; How to Play is available on demand.
-// Factory 5.10.13: Archive badges use each browser's existing locally saved
+// Factory 5.10.14: Archive badges use each browser's existing locally saved
 // move-count personal best. No accounts, D1 writes, or game-score changes.
 function archivePersonalBest(p){
  const session=sessionPB[p.name];
@@ -1204,11 +1221,12 @@ function showQuickReady(){
  const chosenNumber=puzzleIndex+1;
  const isToday=currentDailyNumber===chosenNumber;
  $('startRun').textContent=isToday && getPB()!==null?'PLAY AGAIN':'PLAY';
- $('splashPuzzleKind').textContent=isToday?'DAILY PUZZLE':'ARCHIVE PUZZLE';
- $('splashDailyNumber').textContent=String(chosenNumber).padStart(2,'0');
- const visibleDate=serverDateLabel||new Intl.DateTimeFormat('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'Europe/Madrid'}).format(new Date());
+ const releaseDate=dailyDateLabel(puzzleIndex,true);
+ $('splashPuzzleKind').textContent=releaseDate?'DAILY':isToday?'DAILY PUZZLE':'ARCHIVE PUZZLE';
+ $('splashDailyNumber').textContent=releaseDate?'':String(chosenNumber).padStart(2,'0');
+ const visibleDate=releaseDate || serverDateLabel || new Intl.DateTimeFormat('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'Europe/Madrid'}).format(new Date());
  $('splashDailyDate').textContent=visibleDate;
- $('splashDailyIdentity').setAttribute('aria-label',`${isToday?'Daily':'Archive'} puzzle ${chosenNumber}, ${visibleDate}`);
+ $('splashDailyIdentity').setAttribute('aria-label',releaseDate?`Daily puzzle released ${releaseDate}`:`${isToday?'Daily':'Archive'} puzzle ${chosenNumber}, ${visibleDate}`);
  $('introView').hidden=true;$('quickView').hidden=false;$('archiveView').hidden=true;
  $('readyOverlay').setAttribute('aria-label','WIRLOX home');
  $('readyOverlay').removeAttribute('aria-labelledby');
@@ -1283,7 +1301,7 @@ function showResults(){
  $('target').textContent='COMPLETE';$('dayLabel').textContent=`${puzzleLabel(puzzleIndex).toUpperCase()} · FINISHED`;
  $('wordCount').textContent=`${p.words.length} / ${p.words.length}`;
  $('resultTitle').textContent=`${p.words.length} WORDS FOUND`;
- $('rsPuzzle').textContent=`${puzzleLabel(puzzleIndex).toUpperCase()} / ${PUZZLES.length}`;
+ $('rsPuzzle').textContent=dailyDateLabel(puzzleIndex)?puzzleLabel(puzzleIndex).toUpperCase():`${puzzleLabel(puzzleIndex).toUpperCase()} / ${PUZZLES.length}`;
  $('rsWords').replaceChildren(...p.words.map(w=>{const n=document.createElement('span');n.className='rsWord';n.textContent=w;return n;}));
  $('rsMinScore').textContent=`Mathematical minimum: ${p.reference} moves`;
  updateDailyStreakForResult();
@@ -1648,7 +1666,7 @@ async function loadPrivateFactoryPuzzles(){
    else if(!$('quickView').hidden)showQuickReady();
    document.title='WIRLOX - A Daily Word Game';
    const version=document.querySelector('.version');
-   if(version)version.textContent='· FACTORY 5.10.13 · PRIVATE';
+   if(version)version.textContent='· FACTORY 5.10.14 · PRIVATE';
    const archiveTitle=$('archiveView').querySelector('.eyebrow');
    if(archiveTitle)archiveTitle.textContent='WIRLOX · PRIVATE FACTORY · '+PUZZLES.length+' PUZZLES';
   }catch(error){
@@ -1735,7 +1753,7 @@ async function loadD1Archive(trigger='initial'){
   updateDailyCountdown();
   document.title='WIRLOX - A Daily Word Game';
   const version=document.querySelector('.version');
-  if(version)version.textContent='· FACTORY 5.10.13 · BANKS 01–04';
+  if(version)version.textContent='· FACTORY 5.10.14 · BANKS 01–04';
   const archiveTitle=$('archiveView').querySelector('.eyebrow');
   if(archiveTitle)archiveTitle.textContent='WIRLOX · PUZZLE BANKS 01–04';
  }catch(error){
