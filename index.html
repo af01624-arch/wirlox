@@ -4,7 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>WIRLOX - A Daily Word Game</title>
-<!-- Deployment refresh 2026-11-09: Verified Factory 5.10.14 with dated Daily Archive. No gameplay changes. -->
+<meta name="theme-color" content="#080d1e">
+<meta name="application-name" content="WIRLOX">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="WIRLOX">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+
 <style>
   :root{color-scheme:dark;--blue:#8bd4ff;--warm:#ffe69a;--muted:#99a8c4;--panel:rgba(8,15,34,.72)}
   *{box-sizing:border-box}
@@ -738,7 +746,7 @@ canvas#wheel{transform:translateY(65px)}
 </div>
 <div class="head">
  <div class="panel">
-  <h1>WIRLOX <span class="version">· FACTORY 5.10.14 · BANKS 01–02</span></h1>
+  <h1>WIRLOX <span class="version">· FACTORY 5.10.15 · BANKS 01–02</span></h1>
   <div class="sub">← → position · ↑ ↓ change letter · opposite pair moves with it</div>
   <div class="dayMood" id="dayMood">PUZZLE 01 / 14 · WARM-UP · 14 LETTERS</div>
   <div class="statLine">Time: <strong id="timer">0:00</strong> <span class="sep">|</span> Moves: <strong id="moves">0</strong> <span class="sep">|</span> PB: <strong id="pb">—</strong> <span class="sep">|</span> Word: <strong id="wordCount">1 / 3</strong><span id="minimumHeader" hidden> <span class="sep">|</span> Perfect: <strong id="minimumHeaderScore">—</strong></span></div>
@@ -865,7 +873,7 @@ const ABC='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 // Isolated, authenticated Factory route; the ordinary public interface is unchanged.
 const FACTORY_PRIVATE=location.pathname.replace(/\/+$/,'')==='/factory';
 const PUZZLES=[{"name":"F4-Monday","day":"Monday","mood":"Warm-up","mode":"14 letters \u00b7 3 words","start":"NTCRTYINVANRJE","words":["APPLE","PLANT","TRAIN"],"reference":20,"excellent":23,"good":28,"average":36},{"name":"F4-Tuesday","day":"Tuesday","mood":"Find the links","mode":"14 letters \u00b7 3 words","start":"REBGSIZERNRVSI","words":["MOUSE","BREAD","RIVER"],"reference":21,"excellent":24,"good":29,"average":37},{"name":"F4-Wednesday","day":"Wednesday","mood":"Plan ahead","mode":"14 letters \u00b7 3 words","start":"SWOPCDQSWBTSOJ","words":["BRUSH","STONE","GHOST"],"reference":22,"excellent":25,"good":30,"average":38},{"name":"F4-Thursday","day":"Thursday","mood":"Hidden leverage","mode":"14 letters \u00b7 3 words","start":"MCNNXHQRAKMIPX","words":["CLOUD","TRAIN","FLAME"],"reference":21,"excellent":24,"good":29,"average":37},{"name":"F4-Friday","day":"Friday","mood":"The challenge","mode":"14 letters \u00b7 3 words","start":"PEAMFPAPGIDKBX","words":["GRAPE","FIELD","CANDY"],"reference":26,"excellent":29,"good":34,"average":42},{"name":"F4-Saturday","day":"Saturday","mood":"Expert wheel","mode":"14 letters \u00b7 3 words","start":"RIBLJDSEARIGNF","words":["SHINE","BRICK","DREAM"],"reference":26,"excellent":29,"good":34,"average":42},{"name":"F4-Sunday","day":"Sunday","mood":"The slow spin","mode":"14 letters \u00b7 3 words","start":"YFACHREBOZZWAT","words":["BEACH","GREEN","WATER"],"reference":23,"excellent":26,"good":31,"average":39},{"name":"B02-08","day":"Puzzle 08","mood":"First connections","mode":"14 letters \u00b7 3 words","start":"QTLKGOPJSNDBTK","words":["SPEAR","PEARL","LEMON"],"reference":22,"excellent":25,"good":30,"average":38},{"name":"B02-09","day":"Puzzle 09","mood":"Finding the link","mode":"14 letters \u00b7 3 words","start":"GDAFCQOUCALBCS","words":["SCALE","CLEAR","REACH"],"reference":23,"excellent":26,"good":31,"average":39},{"name":"B02-10","day":"Puzzle 10","mood":"Across the wheel","mode":"14 letters \u00b7 3 words","start":"EMWAVLBVKMBMZF","words":["BLADE","DELTA","ATLAS"],"reference":23,"excellent":26,"good":31,"average":39},{"name":"B02-11","day":"Puzzle 11","mood":"Look twice","mode":"14 letters \u00b7 3 words","start":"RTHIOJFFUIIICM","words":["NIGHT","THING","GIANT"],"reference":24,"excellent":27,"good":32,"average":40},{"name":"B02-12","day":"Puzzle 12","mood":"The crossover","mode":"14 letters \u00b7 3 words","start":"DTJGSRRSDIDDUU","words":["CIDER","DRIFT","FROST"],"reference":24,"excellent":27,"good":32,"average":40},{"name":"B02-13","day":"Puzzle 13","mood":"Hidden leverage","mode":"14 letters \u00b7 3 words","start":"TLISJLUDSIONTT","words":["TULIP","PILOT","OLIVE"],"reference":25,"excellent":28,"good":33,"average":41},{"name":"B02-14","day":"Puzzle 14","mood":"The challenge","mode":"14 letters \u00b7 3 words","start":"RLWNDTBCMMPAIC","words":["CROWN","WAGON","NOBLE"],"reference":26,"excellent":29,"good":34,"average":42}];
-// Factory 5.10.14: Public Daily slots are labelled by their Madrid release date.
+// Factory 5.10.15: Public Daily slots are labelled by their Madrid release date.
 // Dates belong to slots, not the underlying source puzzle, so swaps stay safe.
 function dailyReleaseDate(i){
  if(FACTORY_PRIVATE || i<28 || !/^\d{4}-\d{2}-\d{2}$/.test(dailyStartDate||''))return null;
@@ -1180,7 +1188,7 @@ function updateUI(){
   $('focusPB').textContent=getPB()??'—';
 }
 // Factory 5.4: Home always opens first; How to Play is available on demand.
-// Factory 5.10.14: Archive badges use each browser's existing locally saved
+// Factory 5.10.15: Archive badges use each browser's existing locally saved
 // move-count personal best. No accounts, D1 writes, or game-score changes.
 function archivePersonalBest(p){
  const session=sessionPB[p.name];
@@ -1667,7 +1675,7 @@ async function loadPrivateFactoryPuzzles(){
    else if(!$('quickView').hidden)showQuickReady();
    document.title='WIRLOX - A Daily Word Game';
    const version=document.querySelector('.version');
-   if(version)version.textContent='· FACTORY 5.10.14 · PRIVATE';
+   if(version)version.textContent='· FACTORY 5.10.15 · PRIVATE';
    const archiveTitle=$('archiveView').querySelector('.eyebrow');
    if(archiveTitle)archiveTitle.textContent='WIRLOX · PRIVATE FACTORY · '+PUZZLES.length+' PUZZLES';
   }catch(error){
@@ -1754,7 +1762,7 @@ async function loadD1Archive(trigger='initial'){
   updateDailyCountdown();
   document.title='WIRLOX - A Daily Word Game';
   const version=document.querySelector('.version');
-  if(version)version.textContent='· FACTORY 5.10.14 · BANKS 01–04';
+  if(version)version.textContent='· FACTORY 5.10.15 · BANKS 01–04';
   const archiveTitle=$('archiveView').querySelector('.eyebrow');
   if(archiveTitle)archiveTitle.textContent='WIRLOX · PUZZLE BANKS 01–04';
  }catch(error){
