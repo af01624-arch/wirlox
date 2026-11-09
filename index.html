@@ -349,6 +349,18 @@ canvas#wheel{transform:translateY(65px)}
 #archiveList button{display:flex;justify-content:space-between;align-items:center;gap:8px;
  text-align:left;font-size:12px;color:#deecff;padding:10px;border-radius:9px}
 #archiveList button.currentArchive{border-color:#d4a25d;background:rgba(86,57,23,.22)}
+#archiveList button.completedArchive{border-color:rgba(104,171,176,.58);background:rgba(45,111,123,.16)}
+#archiveList button.currentArchive.completedArchive{border-color:#d4a25d;background:rgba(86,57,23,.22)}
+#archiveList .archiveRight{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex:1;min-width:0}
+#archiveList .archiveWords{min-width:0;text-align:right;white-space:nowrap;font-size:11px}
+#archiveList .archiveGrade{display:inline-flex;align-items:center;justify-content:center;flex:0 0 23px;
+ width:23px;height:23px;border-radius:50%;font-size:11px;line-height:1;font-weight:800;
+ color:#101c31;border:1px solid rgba(255,255,255,.25)}
+#archiveList .archiveGrade.gradeP{background:#f0c56e}
+#archiveList .archiveGrade.gradeE{background:#8bd6af}
+#archiveList .archiveGrade.gradeG{background:#91c3e5}
+#archiveList .archiveGrade.gradeA{background:#c9b9e6}
+#archiveList .archiveGrade.gradeC{background:#acb6c6}
 #archiveBack,#openArchive{font-size:12px;color:#b4d7ec;background:transparent;border-color:rgba(133,173,216,.3);margin-top:9px}
 .splashDate{font-size:11px;letter-spacing:.09em;color:#a9c5dc;margin:8px 0 0}
 #readyOverlay{background:rgba(5,11,27,.965)}
@@ -724,7 +736,7 @@ canvas#wheel{transform:translateY(65px)}
 </div>
 <div class="head">
  <div class="panel">
-  <h1>WIRLOX <span class="version">· FACTORY 5.10.12 · BANKS 01–02</span></h1>
+  <h1>WIRLOX <span class="version">· FACTORY 5.10.13 · BANKS 01–02</span></h1>
   <div class="sub">← → position · ↑ ↓ change letter · opposite pair moves with it</div>
   <div class="dayMood" id="dayMood">PUZZLE 01 / 14 · WARM-UP · 14 LETTERS</div>
   <div class="statLine">Time: <strong id="timer">0:00</strong> <span class="sep">|</span> Moves: <strong id="moves">0</strong> <span class="sep">|</span> PB: <strong id="pb">—</strong> <span class="sep">|</span> Word: <strong id="wordCount">1 / 3</strong><span id="minimumHeader" hidden> <span class="sep">|</span> Perfect: <strong id="minimumHeaderScore">—</strong></span></div>
@@ -1150,9 +1162,33 @@ function updateUI(){
   $('focusPB').textContent=getPB()??'—';
 }
 // Factory 5.4: Home always opens first; How to Play is available on demand.
+// Factory 5.10.13: Archive badges use each browser's existing locally saved
+// move-count personal best. No accounts, D1 writes, or game-score changes.
+function archivePersonalBest(p){
+ const session=sessionPB[p.name];
+ if(Number.isInteger(session)&&session>0)return session;
+ let stored=null;
+ try{stored=localStorage.getItem((FACTORY_PRIVATE?'wirlox-private-':'wirlox-factory4-')+p.name);}catch(e){}
+ const best=Number(stored);
+ return stored!==null&&Number.isInteger(best)&&best>0?best:null;
+}
+function archiveGrade(p,best){
+ if(best===null)return null;
+ if(best===p.reference)return {code:'P',name:'Perfect'};
+ if(best<=p.excellent)return {code:'E',name:'Excellent'};
+ if(best<=p.good)return {code:'G',name:'Good'};
+ if(best<=p.average)return {code:'A',name:'Average'};
+ return {code:'C',name:'Completed'};
+}
 function showArchive(){
  $('introView').hidden=true;$('quickView').hidden=true;$('archiveView').hidden=false;
- $('archiveList').innerHTML=PUZZLES.map((p,i)=>`<button type="button" class="${i===puzzleIndex?'currentArchive':''}" data-puzzle="${i}"><span>${puzzleLabel(i)}</span><span>${p.words.join(' · ')}</span></button>`).join('');
+ $('archiveList').innerHTML=PUZZLES.map((p,i)=>{
+  const best=archivePersonalBest(p),grade=archiveGrade(p,best);
+  const label=puzzleLabel(i),words=p.words.join(' · ');
+  const classes=[i===puzzleIndex?'currentArchive':'',grade?'completedArchive':''].filter(Boolean).join(' ');
+  const status=grade?` · ${grade.name} · personal best ${best} moves`:'';
+  return `<button type="button" class="${classes}" data-puzzle="${i}" aria-label="${label} · ${words}${status}"><span>${label}</span><span class="archiveRight"><span class="archiveWords">${words}</span>${grade?`<span class="archiveGrade grade${grade.code}" title="${grade.name} · PB ${best} moves" aria-hidden="true">${grade.code}</span>`:''}</span></button>`;
+ }).join('');
  $('readyOverlay').setAttribute('aria-labelledby','archiveHeading');
 }
 function showIntro(){
@@ -1612,7 +1648,7 @@ async function loadPrivateFactoryPuzzles(){
    else if(!$('quickView').hidden)showQuickReady();
    document.title='WIRLOX - A Daily Word Game';
    const version=document.querySelector('.version');
-   if(version)version.textContent='· FACTORY 5.10.12 · PRIVATE';
+   if(version)version.textContent='· FACTORY 5.10.13 · PRIVATE';
    const archiveTitle=$('archiveView').querySelector('.eyebrow');
    if(archiveTitle)archiveTitle.textContent='WIRLOX · PRIVATE FACTORY · '+PUZZLES.length+' PUZZLES';
   }catch(error){
@@ -1699,7 +1735,7 @@ async function loadD1Archive(trigger='initial'){
   updateDailyCountdown();
   document.title='WIRLOX - A Daily Word Game';
   const version=document.querySelector('.version');
-  if(version)version.textContent='· FACTORY 5.10.12 · BANKS 01–04';
+  if(version)version.textContent='· FACTORY 5.10.13 · BANKS 01–04';
   const archiveTitle=$('archiveView').querySelector('.eyebrow');
   if(archiveTitle)archiveTitle.textContent='WIRLOX · PUZZLE BANKS 01–04';
  }catch(error){
