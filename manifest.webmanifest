@@ -1,0 +1,31 @@
+{
+  "id": "/",
+  "name": "WIRLOX - A Daily Word Game",
+  "short_name": "WIRLOX",
+  "description": "A daily linked-letter wheel word game.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#080d1e",
+  "theme_color": "#080d1e",
+  "orientation": "any",
+  "lang": "en",
+  "categories": [
+    "games",
+    "puzzle"
+  ],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
