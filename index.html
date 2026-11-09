@@ -747,7 +747,7 @@ canvas#wheel{transform:translateY(65px)}
 </div>
 <div class="head">
  <div class="panel">
-  <h1>WIRLOX <span class="version">· FACTORY 5.10.17 · BANKS 01–02</span></h1>
+  <h1>WIRLOX <span class="version">· FACTORY 5.10.18 · BANKS 01–02</span></h1>
   <div class="sub">← → position · ↑ ↓ change letter · opposite pair moves with it</div>
   <div class="dayMood" id="dayMood">PUZZLE 01 / 14 · WARM-UP · 14 LETTERS</div>
   <div class="statLine">Time: <strong id="timer">0:00</strong> <span class="sep">|</span> Moves: <strong id="moves">0</strong> <span class="sep">|</span> PB: <strong id="pb">—</strong> <span class="sep">|</span> Word: <strong id="wordCount">1 / 3</strong><span id="minimumHeader" hidden> <span class="sep">|</span> Perfect: <strong id="minimumHeaderScore">—</strong></span></div>
@@ -1295,9 +1295,13 @@ function showQuickReady(){
 }
 function showReadyScreen(){showQuickReady();}
 function returnToHome(){
+ // Factory 5.10.18: the logo's Home action keeps an unfinished puzzle
+ // selected, so its Resume option is visible immediately. The original
+ // Daily-first Home behaviour remains for completed runs and fresh visits.
+ const resumingCurrentPuzzle=gameRunning&&!finished;
  pauseUnfinishedRun();
- if(!FACTORY_PRIVATE && dailyStatus==='live' && currentDailyNumber!==null &&
-    currentDailyNumber<=PUZZLES.length){
+ if(!resumingCurrentPuzzle && !FACTORY_PRIVATE && dailyStatus==='live' &&
+    currentDailyNumber!==null && currentDailyNumber<=PUZZLES.length){
   puzzleIndex=currentDailyNumber-1;
   $('puzzle').value=String(puzzleIndex);
   pendingDailyNumber=null;userChosePuzzle=false;
@@ -1305,7 +1309,7 @@ function returnToHome(){
  reset(true);
  checkForDailyRefresh(true);
 }
-// Factory 5.10.17: header logo returns to the existing Daily-first Home.
+// Factory 5.10.18: header logo returns to Home, retaining unfinished puzzle selection.
 $('focusHomeLogo').addEventListener('click',returnToHome);
 $('focusHomeLogo').addEventListener('keydown',e=>{
  if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();returnToHome();}
@@ -1738,7 +1742,7 @@ async function loadPrivateFactoryPuzzles(){
    else if(!$('quickView').hidden)showQuickReady();
    document.title='WIRLOX - A Daily Word Game';
    const version=document.querySelector('.version');
-   if(version)version.textContent='· FACTORY 5.10.17 · PRIVATE';
+   if(version)version.textContent='· FACTORY 5.10.18 · PRIVATE';
    const archiveTitle=$('archiveView').querySelector('.eyebrow');
    if(archiveTitle)archiveTitle.textContent='WIRLOX · PRIVATE FACTORY · '+PUZZLES.length+' PUZZLES';
   }catch(error){
@@ -1825,7 +1829,7 @@ async function loadD1Archive(trigger='initial'){
   updateDailyCountdown();
   document.title='WIRLOX - A Daily Word Game';
   const version=document.querySelector('.version');
-  if(version)version.textContent='· FACTORY 5.10.17 · BANKS 01–04';
+  if(version)version.textContent='· FACTORY 5.10.18 · BANKS 01–04';
   const archiveTitle=$('archiveView').querySelector('.eyebrow');
   if(archiveTitle)archiveTitle.textContent='WIRLOX · PUZZLE BANKS 01–04';
  }catch(error){
