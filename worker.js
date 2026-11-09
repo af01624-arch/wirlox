@@ -118,7 +118,12 @@ async function attempt(request,db){
   if(!p||!unlocked(p,date,launch,puzzleNumber))return json({error:'Puzzle not released'},404);
   if(!validateTrace(p,steps))return json({error:'Completion cannot be verified'},422);
   const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(steps)))).map(x=>x.toString(16).padStart(2,'0')).join('');
-  const write=await db.prepare('INSERT OR IGNORE INTO first_attempts (puzzle_number, anonymous_player_id, moves, elapsed_seconds, trace_sha256) VALUES (?,?,?,?,?)')
+  // Any prior verified offline practice result means this is not a fair
+  // competitive first attempt. Existing online first attempts are untouched.
+  const hadOffline=await db.prepare('SELECT 1 AS found FROM offline_personal_bests WHERE puzzle_number=? AND anonymous_player_id=?')
+    .bind(puzzleNumber,playerId).first();
+  const write=hadOffline?{meta:{changes:0}}:
+    await db.prepare('INSERT OR IGNORE INTO first_attempts (puzzle_number, anonymous_player_id, moves, elapsed_seconds, trace_sha256) VALUES (?,?,?,?,?)')
     .bind(puzzleNumber,playerId,steps.length,elapsed,hash).run();
   const agg=await db.prepare('SELECT COUNT(*) as count, ROUND(AVG(moves),1) as average FROM first_attempts WHERE puzzle_number=?').bind(puzzleNumber).first();
   // Only a verified completed play can obtain an optimal route.
@@ -127,9 +132,37 @@ async function attempt(request,db){
   const optimalRoute=sol?.route;
   if(typeof optimalRoute!=='string'||optimalRoute.length!==p.optimum||!validateTrace(p,optimalRoute))
     throw Error('Missing or invalid private route for puzzle '+puzzleNumber);
-  return json({verified:true, firstRecorded:!!write.meta?.changes, puzzleNumber,
+  return json({verified:true, firstRecorded:!!write.meta?.changes, firstAttemptExcluded:!!hadOffline, puzzleNumber,
     moves:steps.length, optimum:p.optimum, globalAverage:agg.average, sampleSize:agg.count,
     optimalRoute});
+}
+
+// Factory 5.10.19: verify downloaded-Archive/offline results without changing
+// first_attempts or its global average. Requires offline_personal_bests D1 table.
+async function offlineAttempt(request,db){
+ if(request.headers.get('content-type')?.split(';')[0].trim()!=='application/json')return json({error:'JSON required'},415);
+ if(Number(request.headers.get('content-length')||0)>4096)return json({error:'Too large'},413);
+ let data;try{const raw=await request.text();if(raw.length>4096)return json({error:'Too large'},413);data=JSON.parse(raw);}catch{return json({error:'Invalid JSON'},400);}
+ const number=data.puzzleNumber,playerId=data.playerId,steps=data.steps,elapsed=data.elapsedSeconds;
+ if(!Number.isInteger(number)||number<1||number>LAST_DAILY||
+    typeof playerId!=='string'||!UUID_RE.test(playerId)||typeof steps!=='string'||
+    !steps.length||steps.length>MAX_TRACE||
+    !Number.isInteger(elapsed)||elapsed<0||elapsed>86400*14)return json({error:'Invalid submission'},422);
+ const p=await resolvePublicPuzzle(db,number);
+ if(!p||!unlocked(p,todayInMadrid(),await getLaunchDate(db),number))return json({error:'Puzzle not released'},404);
+ if(!validateTrace(p,steps))return json({error:'Completion cannot be verified'},422);
+ const hash=await digest(steps);
+ await db.prepare(`INSERT INTO offline_personal_bests
+    (puzzle_number,anonymous_player_id,moves,elapsed_seconds,trace_sha256,updated_at)
+    VALUES(?,?,?,?,?,strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    ON CONFLICT(puzzle_number,anonymous_player_id) DO UPDATE SET
+    moves=excluded.moves, elapsed_seconds=excluded.elapsed_seconds,
+    trace_sha256=excluded.trace_sha256, updated_at=excluded.updated_at
+    WHERE excluded.moves<offline_personal_bests.moves OR
+    (excluded.moves=offline_personal_bests.moves AND excluded.elapsed_seconds<offline_personal_bests.elapsed_seconds)`)
+  .bind(number,playerId,steps.length,elapsed,hash).run();
+ return json({verified:true,offlineRecorded:true,firstRecorded:false,
+   puzzleNumber:number,moves:steps.length,optimum:p.optimum});
 }
 
 // Factory 5.10.3 private gate. The access key is a Cloudflare Worker SECRET,
@@ -371,6 +404,7 @@ export default {
       }
       if(url.pathname==='/api/state'&&request.method==='GET')return json(await state(env.DB));
       if(url.pathname==='/api/attempt'&&request.method==='POST')return attempt(request,env.DB);
+      if(url.pathname==='/api/offline-attempt'&&request.method==='POST')return offlineAttempt(request,env.DB);
       if(url.pathname==='/api/feedback'&&request.method==='POST')return savePuzzleFeedback(request,env.DB,false);
       return json({error:'Not found'},404);
     }catch(e){console.error('WIRLOX API error:',e?.message||String(e));return json({error:'Service temporarily unavailable'},503);}
