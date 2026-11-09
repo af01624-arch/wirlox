@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>WIRLOX · Puzzle Banks 01–02 · Factory 5.10.10</title>
+<title>WIRLOX - A Daily Word Game</title>
 <style>
   :root{color-scheme:dark;--blue:#8bd4ff;--warm:#ffe69a;--muted:#99a8c4;--panel:rgba(8,15,34,.72)}
   *{box-sizing:border-box}
@@ -724,7 +724,7 @@ canvas#wheel{transform:translateY(65px)}
 </div>
 <div class="head">
  <div class="panel">
-  <h1>WIRLOX <span class="version">· FACTORY 5.10.10 · BANKS 01–02</span></h1>
+  <h1>WIRLOX <span class="version">· FACTORY 5.10.11 · BANKS 01–02</span></h1>
   <div class="sub">← → position · ↑ ↓ change letter · opposite pair moves with it</div>
   <div class="dayMood" id="dayMood">PUZZLE 01 / 14 · WARM-UP · 14 LETTERS</div>
   <div class="statLine">Time: <strong id="timer">0:00</strong> <span class="sep">|</span> Moves: <strong id="moves">0</strong> <span class="sep">|</span> PB: <strong id="pb">—</strong> <span class="sep">|</span> Word: <strong id="wordCount">1 / 3</strong><span id="minimumHeader" hidden> <span class="sep">|</span> Perfect: <strong id="minimumHeaderScore">—</strong></span></div>
@@ -765,6 +765,7 @@ canvas#wheel{transform:translateY(65px)}
         <div class="rsScoreLine"><strong id="finalScore" class="rsScoreNumber">—</strong><span class="rsScoreUnit">MOVES</span></div>
         <div id="finalTier" class="rsPerfect">EXCELLENT</div>
         <p class="rsMinimum" id="rsMinScore">Mathematical minimum: —</p>
+        <p class="rsMinimum" id="rsDailyStreak" hidden></p>
       </div>
       <div class="rsActions">
         <button class="rsReplay" id="optimalReplayButton" type="button" hidden>▶ &nbsp; STUDY PERFECT ROUTE</button>
@@ -940,6 +941,64 @@ function checkForDailyRefresh(onReturn=false){
  if((changed&&since>=12000)||(onReturn&&since>=60000))loadD1Archive(changed?'rollover':'resume');
 }
 
+// Factory 5.10.11: local public Daily streak. Never counts archive replays or private Factory.
+const DAILY_STREAK_KEY='wirlox-daily-streak-v1';
+function madridDayGap(fromYmd,toYmd){
+ const a=Date.parse(fromYmd+'T00:00:00Z'),b=Date.parse(toYmd+'T00:00:00Z');
+ return Number.isFinite(a)&&Number.isFinite(b)?Math.round((b-a)/86400000):NaN;
+}
+function readDailyStreak(){
+ try{
+  const data=JSON.parse(localStorage.getItem(DAILY_STREAK_KEY)||'null');
+  if(data && Number.isInteger(data.count) && data.count>=0 && data.count<=100000 &&
+   (data.lastDate===null || (typeof data.lastDate==='string' && /^\d{4}-\d{2}-\d{2}$/.test(data.lastDate))))
+   return {count:data.count,lastDate:data.lastDate};
+ }catch(e){}
+ return {count:0,lastDate:null};
+}
+function saveDailyStreak(streak){
+ try{localStorage.setItem(DAILY_STREAK_KEY,JSON.stringify(streak));}catch(e){}
+}
+function syncDailyStreak(today=madridYmd(serverNowMs())){
+ const streak=readDailyStreak();
+ if(!streak.lastDate)return streak;
+ const gap=madridDayGap(streak.lastDate,today);
+ if(!Number.isFinite(gap)||gap<0||gap>1){
+  const cleared={count:0,lastDate:null};saveDailyStreak(cleared);return cleared;
+ }
+ return streak;
+}
+function recordDailyCompletion(today){
+ const prior=syncDailyStreak(today);
+ const count=prior.lastDate===today?Math.max(1,prior.count):
+  prior.lastDate && madridDayGap(prior.lastDate,today)===1?prior.count+1:1;
+ saveDailyStreak({count,lastDate:today});
+ return count;
+}
+// Recognise today's public Daily if it was already completed before installing
+// this update: its pre-existing local PB proves an earlier completion today.
+function recoverCurrentDailyStreak(){
+ if(FACTORY_PRIVATE||dailyStatus!=='live'||currentDailyNumber===null||
+    lastLoadedMadridDate!==madridYmd(serverNowMs()))return;
+ const p=PUZZLES[currentDailyNumber-1];if(!p)return;
+ let best=NaN;
+ try{best=Number(localStorage.getItem('wirlox-factory4-'+p.name));}catch(e){}
+ if(!Number.isFinite(best)||best<=0)return;
+ if(readDailyStreak().lastDate===lastLoadedMadridDate)return;
+ recordDailyCompletion(lastLoadedMadridDate);
+}
+function updateDailyStreakForResult(){
+ const line=$('rsDailyStreak');
+ line.hidden=true;
+ // The date must still match the server-confirmed Daily at the moment of completion.
+ // Playing an old Daily from Archive never repairs a missed day's streak.
+ const today=madridYmd(serverNowMs());
+ if(FACTORY_PRIVATE||dailyStatus!=='live'||currentDailyNumber!==puzzleIndex+1||
+    lastLoadedMadridDate!==today)return;
+ const count=recordDailyCompletion(today);
+ line.textContent=`DAILY STREAK · ${count} ${count===1?'DAY':'DAYS'}`;
+ line.hidden=false;
+}
 function getAnonymousPlayerId(){
  const valid=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
  try{const stored=localStorage.getItem(ANON_PLAYER_KEY);if(stored&&valid.test(stored))return stored;}catch(e){}
@@ -1180,6 +1239,7 @@ function showResults(){
  $('rsPuzzle').textContent=`${puzzleLabel(puzzleIndex).toUpperCase()} / ${PUZZLES.length}`;
  $('rsWords').replaceChildren(...p.words.map(w=>{const n=document.createElement('span');n.className='rsWord';n.textContent=w;return n;}));
  $('rsMinScore').textContent=`Mathematical minimum: ${p.reference} moves`;
+ updateDailyStreakForResult();
  $('rsThresholds').textContent=`Excellent ≤ ${p.excellent} · Good ≤ ${p.good} · Average ≤ ${p.average}`;
  const rsLogo=$('rsLogo'),originalLogo=document.querySelector('#focusUI .focusBrandLogo');
  if(originalLogo&&!rsLogo.querySelector('img'))rsLogo.replaceChildren(originalLogo.cloneNode(true));
@@ -1539,9 +1599,9 @@ async function loadPrivateFactoryPuzzles(){
    updateUI();
    if(!$('archiveView').hidden)showArchive();
    else if(!$('quickView').hidden)showQuickReady();
-   document.title='WIRLOX · Private Factory · 5.10.10';
+   document.title='WIRLOX - A Daily Word Game';
    const version=document.querySelector('.version');
-   if(version)version.textContent='· FACTORY 5.10.10 · PRIVATE';
+   if(version)version.textContent='· FACTORY 5.10.11 · PRIVATE';
    const archiveTitle=$('archiveView').querySelector('.eyebrow');
    if(archiveTitle)archiveTitle.textContent='WIRLOX · PRIVATE FACTORY · '+PUZZLES.length+' PUZZLES';
   }catch(error){
@@ -1594,8 +1654,10 @@ async function loadD1Archive(trigger='initial'){
   dailyStatus=state.status;
   dailyStartDate=state.dailyStart||null;
   lastLoadedMadridDate=state.date;
+  syncDailyStreak(state.date);
   serverClockBaseMs=Number.isFinite(clockFromHeader)?clockFromHeader:Date.now();
   serverClockBasePerf=performance.now();
+  recoverCurrentDailyStreak();
   serverDateLabel=new Intl.DateTimeFormat('en-GB',
    {weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'UTC'})
    .format(new Date(state.date+'T12:00:00Z'));
@@ -1624,9 +1686,9 @@ async function loadD1Archive(trigger='initial'){
   // daily; the wheel and active puzzle are never reset while playing.
   if(!$('archiveView').hidden)showArchive();
   updateDailyCountdown();
-  document.title='WIRLOX · Puzzle Banks 01–04 · Factory 5.10.10';
+  document.title='WIRLOX - A Daily Word Game';
   const version=document.querySelector('.version');
-  if(version)version.textContent='· FACTORY 5.10.10 · BANKS 01–04';
+  if(version)version.textContent='· FACTORY 5.10.11 · BANKS 01–04';
   const archiveTitle=$('archiveView').querySelector('.eyebrow');
   if(archiveTitle)archiveTitle.textContent='WIRLOX · PUZZLE BANKS 01–04';
  }catch(error){
