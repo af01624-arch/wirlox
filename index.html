@@ -724,7 +724,7 @@ canvas#wheel{transform:translateY(65px)}
 </div>
 <div class="head">
  <div class="panel">
-  <h1>WIRLOX <span class="version">· FACTORY 5.10.11 · BANKS 01–02</span></h1>
+  <h1>WIRLOX <span class="version">· FACTORY 5.10.12 · BANKS 01–02</span></h1>
   <div class="sub">← → position · ↑ ↓ change letter · opposite pair moves with it</div>
   <div class="dayMood" id="dayMood">PUZZLE 01 / 14 · WARM-UP · 14 LETTERS</div>
   <div class="statLine">Time: <strong id="timer">0:00</strong> <span class="sep">|</span> Moves: <strong id="moves">0</strong> <span class="sep">|</span> PB: <strong id="pb">—</strong> <span class="sep">|</span> Word: <strong id="wordCount">1 / 3</strong><span id="minimumHeader" hidden> <span class="sep">|</span> Perfect: <strong id="minimumHeaderScore">—</strong></span></div>
@@ -769,7 +769,7 @@ canvas#wheel{transform:translateY(65px)}
       </div>
       <div class="rsActions">
         <button class="rsReplay" id="optimalReplayButton" type="button" hidden>▶ &nbsp; STUDY PERFECT ROUTE</button>
-        <div class="rsActionRow"><button id="playAgain" type="button">Try Again</button><button id="nextDone" type="button">Next Puzzle →</button></div>
+        <div class="rsActionRow"><button id="playAgain" type="button">Home</button><button id="nextDone" type="button">Try Again</button></div>
       </div>
       <button id="rsDetailsButton" class="rsDetails" type="button" aria-expanded="false" aria-controls="rsDetails">▥ &nbsp; Detailed Results &nbsp;⌄</button>
     </div>
@@ -941,7 +941,7 @@ function checkForDailyRefresh(onReturn=false){
  if((changed&&since>=12000)||(onReturn&&since>=60000))loadD1Archive(changed?'rollover':'resume');
 }
 
-// Factory 5.10.11: local public Daily streak. Never counts archive replays or private Factory.
+// Factory 5.10.12: local public Daily streak. Never counts archive replays or private Factory.
 const DAILY_STREAK_KEY='wirlox-daily-streak-v1';
 function madridDayGap(fromYmd,toYmd){
  const a=Date.parse(fromYmd+'T00:00:00Z'),b=Date.parse(toYmd+'T00:00:00Z');
@@ -1130,7 +1130,7 @@ function updateUI(){
  $('minimumHeaderScore').textContent=alreadyPlayed?p.reference:'—';
  $('tierLine').textContent=`Excellent ≤ ${p.excellent} · Good ≤ ${p.good}`;
  const nextText=puzzleIndex===PUZZLES.length-1?'Back to puzzle 01 ↺':'Next puzzle →';
-  $('next').textContent=nextText;$('nextDone').textContent=nextText;
+  $('next').textContent=nextText;
   $('stagebar').innerHTML=p.words.map((word,i)=>`<div class="wordpill ${i<level?'done':i===level?'active':''}">${i<level?'✓ ':''}${word}${i<level?` · ${breakdown[i]}`:''}</div>`).join('');
   // Approved target-word hierarchy: one unmistakable current word, two quieter words.
   const currentIndex=Math.min(level,p.words.length-1);
@@ -1167,6 +1167,7 @@ function showQuickReady(){
  // never falsely label an unreleased puzzle as playable.
  const chosenNumber=puzzleIndex+1;
  const isToday=currentDailyNumber===chosenNumber;
+ $('startRun').textContent=isToday && getPB()!==null?'PLAY AGAIN':'PLAY';
  $('splashPuzzleKind').textContent=isToday?'DAILY PUZZLE':'ARCHIVE PUZZLE';
  $('splashDailyNumber').textContent=String(chosenNumber).padStart(2,'0');
  const visibleDate=serverDateLabel||new Intl.DateTimeFormat('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'Europe/Madrid'}).format(new Date());
@@ -1177,10 +1178,20 @@ function showQuickReady(){
  $('readyOverlay').removeAttribute('aria-labelledby');
 }
 function showReadyScreen(){showQuickReady();}
+function returnToHome(){
+ if(!FACTORY_PRIVATE && dailyStatus==='live' && currentDailyNumber!==null &&
+    currentDailyNumber<=PUZZLES.length){
+  puzzleIndex=currentDailyNumber-1;
+  $('puzzle').value=String(puzzleIndex);
+  pendingDailyNumber=null;userChosePuzzle=false;
+ }
+ reset(true);
+ checkForDailyRefresh(true);
+}
 $('openArchive').addEventListener('click',showArchive);
-$('archiveBack').addEventListener('click',()=>{showQuickReady();checkForDailyRefresh(true);});
+$('archiveBack').addEventListener('click',returnToHome);
 $('showHowToPlay').addEventListener('click',showIntro);
-$('backToHome').addEventListener('click',()=>{showQuickReady();checkForDailyRefresh(true);});
+$('backToHome').addEventListener('click',returnToHome);
 $('archiveList').addEventListener('click',e=>{
  const button=e.target.closest('[data-puzzle]');if(!button)return;
  userChosePuzzle=true;pendingDailyNumber=null;puzzleIndex=Number(button.dataset.puzzle);$('puzzle').value=String(puzzleIndex);reset(true);
@@ -1340,11 +1351,11 @@ window.addEventListener('keydown',e=>{
  if(dirs[e.key]){e.preventDefault();move(dirs[e.key]);}
 });
 for(const btn of document.querySelectorAll('[data-dir]')){btn.addEventListener('pointerdown',unlockClick);btn.addEventListener('click',()=>move(btn.dataset.dir));}
-$('reset').addEventListener('click',()=>reset(true));$('playAgain').addEventListener('click',()=>reset(true));
+$('reset').addEventListener('click',()=>reset(true));$('playAgain').addEventListener('click',returnToHome);
  const beginRun=()=>{unlockClick();if(gameRunning)return;userChosePuzzle=true;gameRunning=true;activeSince=performance.now();$('readyOverlay').hidden=true;};
  $('startRun').addEventListener('click',beginRun);
  $('playFromHow').addEventListener('click',beginRun);
-$('nextDone').addEventListener('click',()=>{if(pendingDailyNumber===null){userChosePuzzle=true;puzzleIndex=(puzzleIndex+1)%PUZZLES.length;$('puzzle').value=String(puzzleIndex);}reset();});
+$('nextDone').addEventListener('click',()=>{reset(true);beginRun();});
 document.querySelectorAll('[data-feel]').forEach(btn=>btn.addEventListener('click',()=>{const o=readReview();o.feel=btn.dataset.feel;o.note=$('feedbackNote').value.trim();writeReview(o);updateFeedback();submitReviewToD1();}));
 $('saveFeel').addEventListener('click',saveReview);
 $('copyFeedback').addEventListener('click',()=>{saveReview();copyAllNotes();});
@@ -1601,7 +1612,7 @@ async function loadPrivateFactoryPuzzles(){
    else if(!$('quickView').hidden)showQuickReady();
    document.title='WIRLOX - A Daily Word Game';
    const version=document.querySelector('.version');
-   if(version)version.textContent='· FACTORY 5.10.11 · PRIVATE';
+   if(version)version.textContent='· FACTORY 5.10.12 · PRIVATE';
    const archiveTitle=$('archiveView').querySelector('.eyebrow');
    if(archiveTitle)archiveTitle.textContent='WIRLOX · PRIVATE FACTORY · '+PUZZLES.length+' PUZZLES';
   }catch(error){
@@ -1688,7 +1699,7 @@ async function loadD1Archive(trigger='initial'){
   updateDailyCountdown();
   document.title='WIRLOX - A Daily Word Game';
   const version=document.querySelector('.version');
-  if(version)version.textContent='· FACTORY 5.10.11 · BANKS 01–04';
+  if(version)version.textContent='· FACTORY 5.10.12 · BANKS 01–04';
   const archiveTitle=$('archiveView').querySelector('.eyebrow');
   if(archiveTitle)archiveTitle.textContent='WIRLOX · PUZZLE BANKS 01–04';
  }catch(error){
