@@ -747,7 +747,7 @@ canvas#wheel{transform:translateY(65px)}
 </div>
 <div class="head">
  <div class="panel">
-  <h1>WIRLOX <span class="version">· FACTORY 5.10.16 · BANKS 01–02</span></h1>
+  <h1>WIRLOX <span class="version">· FACTORY 5.10.17 · BANKS 01–02</span></h1>
   <div class="sub">← → position · ↑ ↓ change letter · opposite pair moves with it</div>
   <div class="dayMood" id="dayMood">PUZZLE 01 / 14 · WARM-UP · 14 LETTERS</div>
   <div class="statLine">Time: <strong id="timer">0:00</strong> <span class="sep">|</span> Moves: <strong id="moves">0</strong> <span class="sep">|</span> PB: <strong id="pb">—</strong> <span class="sep">|</span> Word: <strong id="wordCount">1 / 3</strong><span id="minimumHeader" hidden> <span class="sep">|</span> Perfect: <strong id="minimumHeaderScore">—</strong></span></div>
@@ -900,7 +900,8 @@ let puzzleIndex=0,level=0,moves=0,breakdown=[],wheel=[],cursor=0,verticalRaw=0;
 let horizontalPhase=0,targetHorizontalPhase=0,verticalPhase=0,targetVerticalPhase=0;
 let width=0,height=0,dpr=1,transition=false,finished=false,winPositions=[],lastFrame=performance.now(),toastTimeout=0,stageTimeout=0;
 // Count actual elapsed play time, excluding the forced one-second animation between words.
-let gameRunning=false,elapsedMs=0,activeSince=0,lastShownSeconds=-1,lastRunScore=null;
+let gameRunning=false,runPaused=false,elapsedMs=0,activeSince=0,lastShownSeconds=-1,lastRunScore=null;
+let resumePendingWordCheck=false;
 // Track only accepted arrow moves, without changing the rules or the timer.
 let moveTrace='',runId=0;
 let completionVerificationPromise=Promise.resolve(false);
@@ -1095,11 +1096,11 @@ async function submitCompletedRun(){
  }
 }
 
-const timeMs=()=>elapsedMs+(gameRunning&&!transition&&!finished?performance.now()-activeSince:0);
+const timeMs=()=>elapsedMs+(gameRunning&&!runPaused&&!transition&&!finished?performance.now()-activeSince:0);
 const secondsForScore=()=>Math.max(1,Math.floor(timeMs()/1000));
 const clockText=sec=>`${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`;
-function freezeTime(){if(gameRunning&&!transition&&!finished){elapsedMs+=performance.now()-activeSince;activeSince=0;}}
-function resumeTime(){if(gameRunning&&!finished)activeSince=performance.now();}
+function freezeTime(){if(gameRunning&&!runPaused&&!transition&&!finished){elapsedMs+=performance.now()-activeSince;activeSince=0;}}
+function resumeTime(){if(gameRunning&&!runPaused&&!finished&&!transition)activeSince=performance.now();}
 function refreshClock(){const sec=Math.floor(timeMs()/1000);if(sec!==lastShownSeconds){lastShownSeconds=sec;$('timer').textContent=clockText(sec);$('focusTime').textContent=clockText(sec);$('timer').classList.toggle('overtime',sec>=300);}}
 function scoreKey(){return (FACTORY_PRIVATE?'wirlox-private-fastest-':'wirlox-factory4-fastest-')+PUZZLES[puzzleIndex].name;}
 function getScorePB(){try{return JSON.parse(localStorage.getItem(scoreKey())||'null');}catch(e){return null;}}
@@ -1163,7 +1164,10 @@ function updateUI(){
  $('dayMood').textContent=`${puzzleTag(puzzleIndex)} · ${p.mood.toUpperCase()} · 14 LETTERS`;
  $('dayLabel').textContent=`${puzzleLabel(puzzleIndex).toUpperCase()} · WORD ${Math.min(level+1,p.words.length)}`;
  $('wordCount').textContent=`${Math.min(level+1,p.words.length)} / ${p.words.length}`;
- $('moves').textContent=moves; $('pb').textContent=getPB()??'—';
+  $('moves').textContent=moves; $('pb').textContent=getPB()??'—';
+  // On an uncompleted first attempt there is no free restart. Once beaten,
+  // deliberate replays/restarts are allowed as before.
+  $('reset').disabled=gameRunning&&!finished&&getPB()===null;
  const alreadyPlayed=getPB()!==null || finished;
  $('minimumHeader').hidden=!alreadyPlayed;
  $('minimumHeaderScore').textContent=alreadyPlayed?p.reference:'—';
@@ -1188,8 +1192,56 @@ function updateUI(){
   $('focusMoves').textContent=String(moves);$('focusMovesMobile').textContent=String(moves);
   $('focusPB').textContent=getPB()??'—';
 }
+// Factory 5.10.17: Keep one unfinished attempt per puzzle, including its move trace.
+// A Home visit, page reload or Dock-app restart must never silently start again.
+const UNFINISHED_PREFIX='wirlox-unfinished-v1-'+(FACTORY_PRIVATE?'private-':'public-');
+function unfinishedKey(p=PUZZLES[puzzleIndex]){return UNFINISHED_PREFIX+p.name;}
+function clearUnfinishedRun(){try{localStorage.removeItem(unfinishedKey());}catch(e){}}
+function saveUnfinishedRun(){
+ if(!gameRunning||finished||!PUZZLES[puzzleIndex])return;
+ const p=PUZZLES[puzzleIndex];
+ const data={v:1,number:puzzleIndex+1,name:p.name,start:p.start,words:p.words.join('/'),
+  wheel:wheel.slice(),cursor,verticalRaw,targetHorizontalPhase,level,moves,
+  breakdown:breakdown.slice(),elapsedMs:Math.max(0,Math.floor(timeMs())),
+  moveTrace,transition};
+ try{localStorage.setItem(unfinishedKey(p),JSON.stringify(data));}catch(e){}
+}
+function pauseUnfinishedRun(){
+ if(!gameRunning||finished)return;
+ freezeTime();runPaused=true;activeSince=0;saveUnfinishedRun();
+}
+function restoreUnfinishedRun(){
+ const p=PUZZLES[puzzleIndex];if(!p)return false;
+ let data;
+ try{data=JSON.parse(localStorage.getItem(unfinishedKey(p))||'null');}catch(e){return false;}
+ if(!data||data.v!==1||data.number!==puzzleIndex+1||data.name!==p.name||
+    data.start!==p.start||data.words!==p.words.join('/')||
+    !Array.isArray(data.wheel)||data.wheel.length!==p.start.length||
+    !data.wheel.every(x=>Number.isInteger(x)&&x>=0&&x<26)||
+    !Number.isInteger(data.cursor)||data.cursor<0||data.cursor>=p.start.length||
+    !Number.isInteger(data.verticalRaw)||Math.abs(data.verticalRaw)>100000||
+    !Number.isFinite(data.targetHorizontalPhase)||Math.abs(data.targetHorizontalPhase)>100000||
+    !Number.isInteger(data.level)||data.level<0||data.level>=p.words.length||
+    !Number.isInteger(data.moves)||data.moves<0||data.moves>100000||
+    typeof data.moveTrace!=='string'||! /^[LRUD]*$/.test(data.moveTrace)||
+    data.moveTrace.length!==data.moves||
+    !Array.isArray(data.breakdown)||data.breakdown.length!==p.words.length||
+    !data.breakdown.every(x=>Number.isInteger(x)&&x>=0)||
+    data.breakdown.reduce((a,b)=>a+b,0)!==data.moves||
+    !Number.isFinite(data.elapsedMs)||data.elapsedMs<0||data.elapsedMs>86400000||
+    typeof data.transition!=='boolean')return false;
+ wheel=data.wheel.slice();cursor=data.cursor;verticalRaw=data.verticalRaw;
+ targetHorizontalPhase=data.targetHorizontalPhase;horizontalPhase=targetHorizontalPhase;
+ targetVerticalPhase=-verticalRaw*verticalStep;verticalPhase=targetVerticalPhase;
+ level=data.level;moves=data.moves;breakdown=data.breakdown.slice();
+ elapsedMs=data.elapsedMs;moveTrace=data.moveTrace;transition=false;finished=false;
+ resumePendingWordCheck=data.transition;
+ gameRunning=true;runPaused=true;activeSince=0;winPositions=[];
+ lastShownSeconds=-1;
+ return true;
+}
 // Factory 5.4: Home always opens first; How to Play is available on demand.
-// Factory 5.10.16: Archive badges use each browser's existing locally saved
+// Factory 5.10.17: Archive badges use each browser's existing locally saved
 // move-count personal best. No accounts, D1 writes, or game-score changes.
 function archivePersonalBest(p){
  const session=sessionPB[p.name];
@@ -1230,7 +1282,7 @@ function showQuickReady(){
  // never falsely label an unreleased puzzle as playable.
  const chosenNumber=puzzleIndex+1;
  const isToday=currentDailyNumber===chosenNumber;
- $('startRun').textContent=isToday && getPB()!==null?'PLAY AGAIN':'PLAY';
+ $('startRun').textContent=gameRunning&&runPaused?'RESUME':(isToday && getPB()!==null?'PLAY AGAIN':'PLAY');
  const releaseDate=dailyDateLabel(puzzleIndex,true);
  $('splashPuzzleKind').textContent=releaseDate?'DAILY':isToday?'DAILY PUZZLE':'ARCHIVE PUZZLE';
  $('splashDailyNumber').textContent=releaseDate?'':String(chosenNumber).padStart(2,'0');
@@ -1243,6 +1295,7 @@ function showQuickReady(){
 }
 function showReadyScreen(){showQuickReady();}
 function returnToHome(){
+ pauseUnfinishedRun();
  if(!FACTORY_PRIVATE && dailyStatus==='live' && currentDailyNumber!==null &&
     currentDailyNumber<=PUZZLES.length){
   puzzleIndex=currentDailyNumber-1;
@@ -1252,7 +1305,7 @@ function returnToHome(){
  reset(true);
  checkForDailyRefresh(true);
 }
-// Factory 5.10.16: header logo returns to the existing Daily-first Home.
+// Factory 5.10.17: header logo returns to the existing Daily-first Home.
 $('focusHomeLogo').addEventListener('click',returnToHome);
 $('focusHomeLogo').addEventListener('keydown',e=>{
  if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();returnToHome();}
@@ -1263,25 +1316,26 @@ $('showHowToPlay').addEventListener('click',showIntro);
 $('backToHome').addEventListener('click',returnToHome);
 $('archiveList').addEventListener('click',e=>{
  const button=e.target.closest('[data-puzzle]');if(!button)return;
- userChosePuzzle=true;pendingDailyNumber=null;puzzleIndex=Number(button.dataset.puzzle);$('puzzle').value=String(puzzleIndex);reset(true);
+  pauseUnfinishedRun();userChosePuzzle=true;pendingDailyNumber=null;puzzleIndex=Number(button.dataset.puzzle);$('puzzle').value=String(puzzleIndex);reset(true);
 });
-function reset(preserveSelection=false){
- if(pendingDailyNumber!==null&&!preserveSelection){
-  puzzleIndex=pendingDailyNumber-1;
-  $('puzzle').value=String(puzzleIndex);
-  pendingDailyNumber=null;userChosePuzzle=false;
- }
- runId++;moveTrace='';verifiedOptimalRoute=null;$('optimalReplayButton').hidden=true;$('onlineResult').hidden=true;closeDetailedResults();
- if(stageTimeout)clearTimeout(stageTimeout);if(toastTimeout)clearTimeout(toastTimeout);
- const p=PUZZLES[puzzleIndex];wheel=[...p.start].map(ch=>ABC.indexOf(ch));
- gameRunning=false;elapsedMs=0;activeSince=0;lastShownSeconds=-1;lastRunScore=null;
- showReadyScreen();
- $('readyOverlay').hidden=false;
- cursor=0;verticalRaw=wheel[0];horizontalPhase=targetHorizontalPhase=0;
- // At i=0 the horizontal angle is -PI/2, so the wheel front is selected.
- verticalPhase=targetVerticalPhase=-verticalRaw*verticalStep;
- level=0;moves=0;breakdown=Array(p.words.length).fill(0);transition=false;finished=false;winPositions=[];
- $('results').style.display='none';$('toast').classList.remove('show');updateUI();refreshClock();
+function reset(preserveSelection=false,forceFresh=false){
+  if(pendingDailyNumber!==null&&!preserveSelection){
+   puzzleIndex=pendingDailyNumber-1;
+   $('puzzle').value=String(puzzleIndex);
+   pendingDailyNumber=null;userChosePuzzle=false;
+  }
+  runId++;moveTrace='';verifiedOptimalRoute=null;$('optimalReplayButton').hidden=true;$('onlineResult').hidden=true;closeDetailedResults();
+  if(stageTimeout)clearTimeout(stageTimeout);if(toastTimeout)clearTimeout(toastTimeout);
+  const p=PUZZLES[puzzleIndex];wheel=[...p.start].map(ch=>ABC.indexOf(ch));
+  gameRunning=false;runPaused=false;resumePendingWordCheck=false;
+  elapsedMs=0;activeSince=0;lastShownSeconds=-1;lastRunScore=null;
+  cursor=0;verticalRaw=wheel[0];horizontalPhase=targetHorizontalPhase=0;
+  // At i=0 the horizontal angle is -PI/2, so the wheel front is selected.
+  verticalPhase=targetVerticalPhase=-verticalRaw*verticalStep;
+  level=0;moves=0;breakdown=Array(p.words.length).fill(0);transition=false;finished=false;winPositions=[];
+  if(forceFresh)clearUnfinishedRun();else restoreUnfinishedRun();
+  showReadyScreen();$('readyOverlay').hidden=false;
+  $('results').style.display='none';$('toast').classList.remove('show');updateUI();refreshClock();
 }
 function findWord(word){
  const t=[...word].map(c=>ABC.indexOf(c));
@@ -1298,7 +1352,7 @@ function check(){
  stageTimeout=setTimeout(()=>{
   winPositions=[];level++;transition=false;$('toast').classList.remove('show');
   if(level===PUZZLES[puzzleIndex].words.length){finished=true;showResults();}
-  else {resumeTime();updateUI();check();}
+   else {resumeTime();updateUI();check();saveUnfinishedRun();}
  },1000);
 }
 function closeDetailedResults(){
@@ -1312,7 +1366,7 @@ $('rsDetailsClose').addEventListener('click',()=>{closeDetailedResults();$('rsDe
 function showResults(){
  const p=PUZZLES[puzzleIndex];
  const finalSeconds=Math.floor(timeMs()/1000),score=moves;lastRunScore=score;
- savePB();saveScorePB(score,finalSeconds);updateUI();
+  clearUnfinishedRun();savePB();saveScorePB(score,finalSeconds);updateUI();
  $('target').textContent='COMPLETE';$('dayLabel').textContent=`${puzzleLabel(puzzleIndex).toUpperCase()} · FINISHED`;
  $('wordCount').textContent=`${p.words.length} / ${p.words.length}`;
  $('resultTitle').textContent=`${p.words.length} WORDS FOUND`;
@@ -1403,16 +1457,16 @@ function playWheelClick(statusElement){
  });
 }
 function move(dir){
- if(!gameRunning||transition||finished)return;
- switch(dir){
+  if(!gameRunning||runPaused||!$('readyOverlay').hidden||transition||finished)return;
+  switch(dir){
   case 'left':horizontal(-1);break;
   case 'right':horizontal(1);break;
   case 'up':vertical(-1);break;
   case 'down':vertical(1);break;
   default:return;
  }
- moveTrace+=({left:'L',right:'R',up:'U',down:'D'})[dir];
- playWheelClick();
+  moveTrace+=({left:'L',right:'R',up:'U',down:'D'})[dir];
+  saveUnfinishedRun();playWheelClick();
 }
 // Wheel dragging is intentionally disabled. The wheel is visual-only.
 window.addEventListener('keydown',e=>{
@@ -1420,16 +1474,19 @@ window.addEventListener('keydown',e=>{
  if(dirs[e.key]){e.preventDefault();move(dirs[e.key]);}
 });
 for(const btn of document.querySelectorAll('[data-dir]')){btn.addEventListener('pointerdown',unlockClick);btn.addEventListener('click',()=>move(btn.dataset.dir));}
-$('reset').addEventListener('click',()=>reset(true));$('playAgain').addEventListener('click',returnToHome);
- const beginRun=()=>{unlockClick();if(gameRunning)return;userChosePuzzle=true;gameRunning=true;activeSince=performance.now();$('readyOverlay').hidden=true;};
+$('reset').addEventListener('click',()=>{if(gameRunning&&!finished&&getPB()===null)return;reset(true,true);});$('playAgain').addEventListener('click',returnToHome);
+ const beginRun=()=>{unlockClick();if(gameRunning&&!runPaused)return;userChosePuzzle=true;
+  if(gameRunning&&runPaused){runPaused=false;activeSince=performance.now();$('readyOverlay').hidden=true;
+   if(resumePendingWordCheck){resumePendingWordCheck=false;check();}updateUI();return;}
+  gameRunning=true;runPaused=false;activeSince=performance.now();$('readyOverlay').hidden=true;updateUI();saveUnfinishedRun();};
  $('startRun').addEventListener('click',beginRun);
  $('playFromHow').addEventListener('click',beginRun);
 $('nextDone').addEventListener('click',()=>{reset(true);beginRun();});
 document.querySelectorAll('[data-feel]').forEach(btn=>btn.addEventListener('click',()=>{const o=readReview();o.feel=btn.dataset.feel;o.note=$('feedbackNote').value.trim();writeReview(o);updateFeedback();submitReviewToD1();}));
 $('saveFeel').addEventListener('click',saveReview);
 $('copyFeedback').addEventListener('click',()=>{saveReview();copyAllNotes();});
-$('next').addEventListener('click',()=>{userChosePuzzle=true;pendingDailyNumber=null;puzzleIndex=(puzzleIndex+1)%PUZZLES.length;$('puzzle').value=String(puzzleIndex);reset(true);});
-$('puzzle').addEventListener('change',e=>{userChosePuzzle=true;pendingDailyNumber=null;puzzleIndex=Number(e.target.value);reset(true);});
+$('next').addEventListener('click',()=>{pauseUnfinishedRun();userChosePuzzle=true;pendingDailyNumber=null;puzzleIndex=(puzzleIndex+1)%PUZZLES.length;$('puzzle').value=String(puzzleIndex);reset(true);});
+$('puzzle').addEventListener('change',e=>{pauseUnfinishedRun();userChosePuzzle=true;pendingDailyNumber=null;puzzleIndex=Number(e.target.value);reset(true);});
 
  // Factory 4.8: Move the EXISTING UI into an optional phone menu.
  // No duplicate buttons, IDs or stats; existing listeners and scoring remain intact.
@@ -1681,7 +1738,7 @@ async function loadPrivateFactoryPuzzles(){
    else if(!$('quickView').hidden)showQuickReady();
    document.title='WIRLOX - A Daily Word Game';
    const version=document.querySelector('.version');
-   if(version)version.textContent='· FACTORY 5.10.16 · PRIVATE';
+   if(version)version.textContent='· FACTORY 5.10.17 · PRIVATE';
    const archiveTitle=$('archiveView').querySelector('.eyebrow');
    if(archiveTitle)archiveTitle.textContent='WIRLOX · PRIVATE FACTORY · '+PUZZLES.length+' PUZZLES';
   }catch(error){
@@ -1768,7 +1825,7 @@ async function loadD1Archive(trigger='initial'){
   updateDailyCountdown();
   document.title='WIRLOX - A Daily Word Game';
   const version=document.querySelector('.version');
-  if(version)version.textContent='· FACTORY 5.10.16 · BANKS 01–04';
+  if(version)version.textContent='· FACTORY 5.10.17 · BANKS 01–04';
   const archiveTitle=$('archiveView').querySelector('.eyebrow');
   if(archiveTitle)archiveTitle.textContent='WIRLOX · PUZZLE BANKS 01–04';
  }catch(error){
@@ -1780,8 +1837,10 @@ async function loadD1Archive(trigger='initial'){
 // This timer is display-only. The Worker alone decides which puzzles unlock.
 setInterval(()=>{updateDailyCountdown();checkForDailyRefresh();},1000);
 document.addEventListener('visibilitychange',()=>{
- if(!document.hidden){updateDailyCountdown();checkForDailyRefresh(true);}
+  if(document.hidden){if(gameRunning&&!finished){pauseUnfinishedRun();showReadyScreen();$('readyOverlay').hidden=false;}}
+  else{updateDailyCountdown();checkForDailyRefresh(true);}
 });
+window.addEventListener('pagehide',pauseUnfinishedRun);
 window.addEventListener('focus',()=>checkForDailyRefresh(true));
 
 // Factory 5.9 — server-verified, post-completion optimal route lesson.
