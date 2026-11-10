@@ -1,3 +1,4 @@
+
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "wirlox",
@@ -19,5 +20,14 @@
       "database_name": "wirlox-data",
       "database_id": "b3fa33a5-506a-4731-af7f-773f88b72baf"
     }
-  ]
+  ],
+  "previews": {
+    "d1_databases": [
+      {
+        "binding": "DB",
+        "database_name": "wirlox-preview",
+        "database_id": "26e8baff-cb7e-40cc-835c-3d6ee13ad21d"
+      }
+    ]
+  }
 }
