@@ -3,7 +3,9 @@
 // Future puzzles are stored in D1 and are released by Europe/Madrid calendar date.
 const TZ = 'Europe/Madrid';
 const FIRST_DAILY = 29;
-const LAST_DAILY = 56;
+// The D1 puzzles table currently permits 1–100000, by deliberate agreement.
+// There is NO Daily schedule ceiling: published slots are drawn from D1.
+const MAX_PUZZLE_NUMBER = 100000;
 const MAX_TRACE = 700;
 const UUID_RE = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const NO_CACHE = { 'Cache-Control': 'private, no-store, max-age=0', 'X-Content-Type-Options': 'nosniff' };
@@ -35,11 +37,11 @@ async function getLaunchDate(db) {
   const setting=await db.prepare("SELECT value FROM settings WHERE key='daily_start_date'").first();
   return setting?.value ?? 'PAUSED';
 }
-// Daily slot numbers (29–56) are public identities. The underlying source
+// Daily slots 29 onwards are public identities. The underlying source
 // puzzle can be swapped BEFORE its slot is released; released slots are locked.
 function unlocked(row,currentDate,startDate,publicNumber=row.number) {
   if(row.publication!=='daily')return row.publication==='archive';
-  return validStart(startDate) && publicNumber>=FIRST_DAILY && publicNumber<=LAST_DAILY &&
+  return validStart(startDate) && publicNumber>=FIRST_DAILY && publicNumber<=MAX_PUZZLE_NUMBER &&
     daysAfter(currentDate,startDate)>=publicNumber-FIRST_DAILY;
 }
 async function resolvePublicPuzzle(db,number){
@@ -48,6 +50,103 @@ async function resolvePublicPuzzle(db,number){
   return db.prepare(`SELECT p.* FROM daily_schedule AS s
       JOIN puzzles AS p ON p.number=s.puzzle_number
       WHERE s.slot_number=? AND p.publication='daily'`).bind(number).first();
+}
+// Read in bounded D1 batches; unlike .all() alone, this does not silently
+// stop after the database's per-query result limit as the archive grows.
+async function getReleasedRows(db, throughSlot) {
+  let after=FIRST_DAILY-1;
+  const rows=[];
+  while(after<throughSlot) {
+    const page=(await db.prepare(`SELECT s.slot_number,p.* FROM daily_schedule AS s
+      JOIN puzzles AS p ON p.number=s.puzzle_number
+      WHERE s.slot_number>? AND s.slot_number<=? AND p.publication='daily'
+      ORDER BY s.slot_number LIMIT 200`).bind(after,throughSlot).all()).results;
+    if(!page.length)break;
+    rows.push(...page);
+    after=page[page.length-1].slot_number;
+  }
+  return rows;
+}
+// Find the last *consecutively* released Daily without retrieving all past
+// puzzles. A missing slot, a missing source puzzle, or a non-Daily source
+// prevents later scheduled entries from becoming public via any endpoint.
+async function releasedBoundary(db,throughSlot) {
+  if(throughSlot<FIRST_DAILY)return FIRST_DAILY-1;
+  const discontinuity=await db.prepare(`SELECT previous_slot FROM (
+    SELECT s.slot_number,
+      LAG(s.slot_number,1,?) OVER (ORDER BY s.slot_number) AS previous_slot
+    FROM daily_schedule AS s
+    JOIN puzzles AS p ON p.number=s.puzzle_number AND p.publication='daily'
+    WHERE s.slot_number BETWEEN ? AND ?
+  ) WHERE slot_number<>previous_slot+1 ORDER BY slot_number LIMIT 1`)
+    .bind(FIRST_DAILY-1,FIRST_DAILY,throughSlot).first();
+  if(discontinuity)return discontinuity.previous_slot;
+  const end=await db.prepare(`SELECT MAX(s.slot_number) AS last FROM daily_schedule AS s
+    JOIN puzzles AS p ON p.number=s.puzzle_number AND p.publication='daily'
+    WHERE s.slot_number BETWEEN ? AND ?`).bind(FIRST_DAILY,throughSlot).first();
+  return end?.last??FIRST_DAILY-1;
+}
+
+// New website clients need only today's Daily, the original 14 archive
+// puzzles, and a first page of released Dailies. The remaining history
+// comes from /api/released as needed; it is never assembled in JS here.
+async function compactState(db,at=new Date()) {
+  const date=todayInMadrid(at),start=await getLaunchDate(db);
+  const archived=(await db.prepare(`SELECT * FROM puzzles
+    WHERE publication='archive' AND number BETWEEN 15 AND 28
+    ORDER BY number`).all()).results.map(p=>toPublicPuzzle(p));
+  let status='not_launched',daily=null,releasedDaily=[];
+  let lastReleasedNumber=FIRST_DAILY-1,nextDailyScheduled=false;
+  if(validStart(start)) {
+    const offset=daysAfter(date,start);
+    if(offset<0)status='upcoming';
+    else {
+      const target=FIRST_DAILY+offset;
+      lastReleasedNumber=await releasedBoundary(db,target);
+      if(lastReleasedNumber>=FIRST_DAILY) {
+        const page=(await db.prepare(`SELECT s.slot_number,p.* FROM daily_schedule AS s
+          JOIN puzzles AS p ON p.number=s.puzzle_number AND p.publication='daily'
+          WHERE s.slot_number BETWEEN ? AND ?
+          ORDER BY s.slot_number LIMIT 100`)
+          .bind(FIRST_DAILY,lastReleasedNumber).all()).results;
+        releasedDaily=page.map(p=>toPublicPuzzle(p,p.slot_number));
+      }
+      if(lastReleasedNumber===target) {
+        const row=await resolvePublicPuzzle(db,target);
+        if(row){
+          status='live';daily=toPublicPuzzle(row,target);
+          const tomorrow=await db.prepare(`SELECT 1 AS present FROM daily_schedule AS s
+            JOIN puzzles AS p ON p.number=s.puzzle_number AND p.publication='daily'
+            WHERE s.slot_number=?`).bind(target+1).first();
+          nextDailyScheduled=!!tomorrow;
+        }else status='awaiting_puzzle';
+      }else status='awaiting_puzzle';
+    }
+  }
+  return {timezone:TZ,date,status,daily,archive:archived,releasedDaily,
+    lastReleasedNumber,nextDailyScheduled,
+    dailyStart:validStart(start)?start:null};
+}
+
+// Paginated released archive for future website/app versions. A page-size
+// limit is not a lifetime puzzle limit; callers can request the next page.
+async function releasedPage(db,request,at=new Date()) {
+  const u=new URL(request.url),raw=u.searchParams.get('after');
+  const after=raw===null?FIRST_DAILY-1:Number(raw);
+  if(!Number.isSafeInteger(after)||after<FIRST_DAILY-1||after>MAX_PUZZLE_NUMBER)
+    return json({error:'Invalid archive cursor'},422);
+  const start=await getLaunchDate(db);
+  const offset=validStart(start)?daysAfter(todayInMadrid(at),start):-1;
+  if(offset<0)return json({items:[],nextAfter:after,hasMore:false});
+  const through=await releasedBoundary(db,FIRST_DAILY+offset);
+  const rows=(await db.prepare(`SELECT s.slot_number,p.* FROM daily_schedule s
+    JOIN puzzles p ON p.number=s.puzzle_number AND p.publication='daily'
+    WHERE s.slot_number>? AND s.slot_number<=?
+    ORDER BY s.slot_number LIMIT 101`).bind(after,through).all()).results;
+  const items=rows.slice(0,100);
+  return json({items:items.map(p=>toPublicPuzzle(p,p.slot_number)),
+    nextAfter:items.length?items[items.length-1].slot_number:after,
+    hasMore:rows.length>100});
 }
 async function state(db,at=new Date()) {
   const date=todayInMadrid(at),start=await getLaunchDate(db);
@@ -58,17 +157,22 @@ async function state(db,at=new Date()) {
     const offset=daysAfter(date,start);
     if(offset<0) status='upcoming';
     else {
-      status=offset>LAST_DAILY-FIRST_DAILY?'finished':'live';
-      const lastSlot=Math.min(LAST_DAILY,FIRST_DAILY+offset);
-      const released=(await db.prepare(`SELECT s.slot_number,p.* FROM daily_schedule AS s
-        JOIN puzzles AS p ON p.number=s.puzzle_number
-        WHERE s.slot_number BETWEEN ? AND ? AND p.publication='daily'
-        ORDER BY s.slot_number`).bind(FIRST_DAILY,lastSlot).all()).results;
-      if(released.length!==lastSlot-FIRST_DAILY+1 ||
-         released.some((p,i)=>p.slot_number!==FIRST_DAILY+i))
-         throw Error('Daily schedule is incomplete');
-      releasedDaily=released.map(p=>toPublicPuzzle(p,p.slot_number));
-      if(status==='live') daily=releasedDaily[releasedDaily.length-1];
+      const targetSlot=FIRST_DAILY+offset;
+      const released=await getReleasedRows(db,targetSlot);
+      // Never expose a puzzle after an unscheduled gap; released slots
+      // must stay consecutive, even if an editor has made a mistake.
+      for(const row of released) {
+        if(row.slot_number!==FIRST_DAILY+releasedDaily.length)break;
+        releasedDaily.push(toPublicPuzzle(row,row.slot_number));
+      }
+      const latest=releasedDaily[releasedDaily.length-1];
+      if(latest?.number===targetSlot) {
+        status='live';daily=latest;
+      } else {
+        // No repeat, no fabricated puzzle, and no HTTP 503 just because
+        // future slots haven't been curated yet.
+        status='awaiting_puzzle';
+      }
     }
   }
   return {timezone:TZ,date,status,daily,archive,releasedDaily,
@@ -110,7 +214,7 @@ async function attempt(request,db){
   try {data=JSON.parse(await request.text());}catch{return json({error:'Invalid JSON'},400);}
   const puzzleNumber=Number(data.puzzleNumber), playerId=data.playerId, steps=data.steps;
   const elapsed=Number(data.elapsedSeconds);
-  if(!Number.isInteger(puzzleNumber)||puzzleNumber<1||puzzleNumber>LAST_DAILY||
+  if(!Number.isInteger(puzzleNumber)||puzzleNumber<1||puzzleNumber>MAX_PUZZLE_NUMBER||
     typeof playerId!=='string'||!UUID_RE.test(playerId)||typeof steps!=='string'||steps.length>MAX_TRACE||
     !Number.isInteger(elapsed)||elapsed<0||elapsed>86400*14){return json({error:'Invalid submission'},422);}
   const p=await resolvePublicPuzzle(db,puzzleNumber);
@@ -144,7 +248,7 @@ async function offlineAttempt(request,db){
  if(Number(request.headers.get('content-length')||0)>4096)return json({error:'Too large'},413);
  let data;try{const raw=await request.text();if(raw.length>4096)return json({error:'Too large'},413);data=JSON.parse(raw);}catch{return json({error:'Invalid JSON'},400);}
  const number=data.puzzleNumber,playerId=data.playerId,steps=data.steps,elapsed=data.elapsedSeconds;
- if(!Number.isInteger(number)||number<1||number>LAST_DAILY||
+ if(!Number.isInteger(number)||number<1||number>MAX_PUZZLE_NUMBER||
     typeof playerId!=='string'||!UUID_RE.test(playerId)||typeof steps!=='string'||
     !steps.length||steps.length>MAX_TRACE||
     !Number.isInteger(elapsed)||elapsed<0||elapsed>86400*14)return json({error:'Invalid submission'},422);
@@ -169,7 +273,7 @@ async function offlineAttempt(request,db){
 // never a source-code constant. A signed HttpOnly session lasts 14 days.
 const FACTORY_COOKIE='wirlox_factory_session';
 const FACTORY_SESSION_SECONDS=14*24*60*60;
-const FACTORY_MAX_PUZZLE=1000;
+const FACTORY_MAX_PUZZLE=MAX_PUZZLE_NUMBER;
 const FACTORY_LOGIN_HTML="<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>WIRLOX · Private Factory</title><meta name=\"robots\" content=\"noindex,nofollow\"><style>html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,sans-serif;background:#090f1b;color:#e7f1fd}body{display:grid;min-height:100dvh;place-items:center}.card{box-sizing:border-box;width:min(420px,92vw);padding:28px;border:1px solid #334a66;border-radius:18px;background:#152138;box-shadow:0 18px 55px #0007}h1{margin:0 0 8px;font-size:26px;letter-spacing:.10em}p{color:#adbed5;line-height:1.5}label{display:block;margin:22px 0 9px;font-size:13px}input{box-sizing:border-box;width:100%;padding:13px;border:1px solid #6688a8;border-radius:8px;background:#0e182a;color:#fff;font-size:16px}button{width:100%;padding:13px;margin-top:15px;border:1px solid #83c6ee;border-radius:9px;background:#224767;color:#fff;font-size:16px;font-weight:700;cursor:pointer}#error{color:#ffb9b9;min-height:1em}</style></head><body><main class=\"card\"><h1>WIRLOX</h1><p>Private Factory · puzzle testing only.<br>The public game is unchanged.</p><form id=\"gate\"><label for=\"password\">Private access key</label><input id=\"password\" type=\"password\" autocomplete=\"current-password\" required autofocus><button type=\"submit\">Open private puzzles</button><p id=\"error\" role=\"status\"></p></form></main><script>document.getElementById('gate').addEventListener('submit',async e=>{e.preventDefault();const b=e.target.querySelector('button');b.disabled=true;document.getElementById('error').textContent='';try{const r=await fetch('/api/factory/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:document.getElementById('password').value}),cache:'no-store'});if(!r.ok){document.getElementById('error').textContent=r.status===401?'Access key not recognised.':'Private access unavailable.';return;}location.replace('/factory');}catch{document.getElementById('error').textContent='Unable to connect.';}finally{b.disabled=false;}});</script></body></html>";
 const FACTORY_HEADERS={...NO_CACHE,'X-Robots-Tag':'noindex, nofollow','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY'};
 function strongFactoryKey(env){return typeof env.FACTORY_ACCESS_KEY==='string'&&env.FACTORY_ACCESS_KEY.length>=18;}
@@ -224,7 +328,13 @@ async function serveFactory(request,env){
  return new Response(asset.body,{status:asset.status,headers});
 }
 async function privateFactoryPuzzles(db){
- const rows=(await db.prepare('SELECT * FROM puzzles WHERE number >= 15 ORDER BY number').all()).results;
+ // D1 .all() is a single page; read every page as the private library grows.
+ const rows=[];let after=14;
+ while(true){
+  const page=(await db.prepare('SELECT * FROM puzzles WHERE number>? ORDER BY number LIMIT 200').bind(after).all()).results;
+  if(!page.length)break;
+  rows.push(...page);after=page[page.length-1].number;
+ }
  return json({puzzles:rows.map(p=>toPublicPuzzle(p))});
 }
 async function privateFactoryAttempt(request,db){
@@ -257,7 +367,7 @@ async function savePuzzleFeedback(request,db,isPrivate){
   try{const text=await request.text();if(text.length>2048)return json({error:'Too large'},413);data=JSON.parse(text);}
   catch{return json({error:'Invalid JSON'},400);}
   const number=data?.puzzleNumber,playerId=data?.playerId,feel=data?.feel,note=data?.note;
-  if(!Number.isInteger(number)||number<1||number>(isPrivate?FACTORY_MAX_PUZZLE:LAST_DAILY)||
+  if(!Number.isInteger(number)||number<1||number>MAX_PUZZLE_NUMBER||
      typeof playerId!=='string'||!UUID_RE.test(playerId)||
      typeof feel!=='string'||!['','Clever','Straightforward','Grindy'].includes(feel)||
      typeof note!=='string'||note.length>240||/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(note))
@@ -301,17 +411,29 @@ refresh().catch(e=>msg(e.message));})();</script></body></html>`;
 async function scheduleAdmin(db,at=new Date()){
   const today=todayInMadrid(at),start=await getLaunchDate(db);
   const offset=validStart(start)?daysAfter(today,start):-1;
-  const status=!validStart(start)?'not_launched':offset<0?'upcoming':offset>27?'finished':'live';
-  const scheduled=(await db.prepare(`SELECT s.slot_number,s.puzzle_number,p.word1,p.word2,p.word3,p.mood
-    FROM daily_schedule s JOIN puzzles p ON p.number=s.puzzle_number
-    ORDER BY s.slot_number`).all()).results;
-  if(scheduled.length!==28||scheduled.some((s,i)=>s.slot_number!==29+i))throw Error('Daily schedule incomplete');
-  const rows=(await db.prepare(`SELECT number,word1,word2,word3,mood FROM puzzles
-    WHERE publication='daily' AND number NOT IN
-    (SELECT puzzle_number FROM daily_schedule) ORDER BY number`).all()).results;
+  const status=!validStart(start)?'not_launched':offset<0?'upcoming':'live';
+  // The schedule is extendable; do not demand exactly 28 entries.
+  const scheduled=[];let after=FIRST_DAILY-1;
+  while(true) {
+    const page=(await db.prepare(`SELECT s.slot_number,s.puzzle_number,p.word1,p.word2,p.word3,p.mood
+      FROM daily_schedule s JOIN puzzles p ON p.number=s.puzzle_number
+      WHERE s.slot_number>? ORDER BY s.slot_number LIMIT 200`).bind(after).all()).results;
+    if(!page.length)break;
+    scheduled.push(...page);
+    after=page[page.length-1].slot_number;
+  }
+  if(scheduled.some((s,i)=>s.slot_number!==FIRST_DAILY+i))throw Error('Daily schedule has a gap');
+  const rows=[];let reserveAfter=0;
+  while(true){
+    const page=(await db.prepare(`SELECT number,word1,word2,word3,mood FROM puzzles
+      WHERE publication='daily' AND number>? AND number NOT IN
+      (SELECT puzzle_number FROM daily_schedule) ORDER BY number LIMIT 200`).bind(reserveAfter).all()).results;
+    if(!page.length)break;
+    rows.push(...page);reserveAfter=page[page.length-1].number;
+  }
   return {today,status,dailyStart:validStart(start)?start:null,
     slots:scheduled.map(s=>({slot:s.slot_number,puzzleNumber:s.puzzle_number,mood:s.mood,
-      words:[s.word1,s.word2,s.word3],locked:status==='finished'||(status==='live'&&s.slot_number<=29+offset)})),
+      words:[s.word1,s.word2,s.word3],locked:offset>=0 && s.slot_number<=FIRST_DAILY+offset})),
     reserves:rows.map(p=>({number:p.number,mood:p.mood,words:[p.word1,p.word2,p.word3]}))};
 }
 async function scheduleMutation(request,db,kind){
@@ -325,7 +447,7 @@ async function scheduleMutation(request,db,kind){
     if(v?.confirmation!=='START DAILY'||!validStart(v?.startDate)||v.startDate<=today)
       return json({error:'Choose a future Madrid date and confirm launch'},422);
     const check=await scheduleAdmin(db);
-    if(check.slots.length!==28)return json({error:'Schedule incomplete'},503);
+    if(check.slots.length<1)return json({error:'Schedule has no first puzzle'},503);
     await db.prepare("UPDATE settings SET value=? WHERE key='daily_start_date' AND value='PAUSED'").bind(v.startDate).run();
     return json({ok:true,status:'upcoming',dailyStart:v.startDate});
   }
@@ -337,7 +459,7 @@ async function scheduleMutation(request,db,kind){
   }
   if(kind!=='replace')return json({error:'Not found'},404);
   const slot=v?.slot,number=v?.puzzleNumber;
-  if(!Number.isInteger(slot)||slot<FIRST_DAILY||slot>LAST_DAILY||
+  if(!Number.isInteger(slot)||slot<FIRST_DAILY||slot>MAX_PUZZLE_NUMBER||
      !Number.isInteger(number)||number<FIRST_DAILY)
     return json({error:'Invalid slot or candidate'},422);
   const schedule=await scheduleAdmin(db);
@@ -402,7 +524,8 @@ export default {
         const [row,start]=await Promise.all([env.DB.prepare('SELECT COUNT(*) as total FROM puzzles').first(),getLaunchDate(env.DB)]);
         return json({ok:true,puzzleCount:row.total,dailyConfigured:validStart(start),timezone:TZ});
       }
-      if(url.pathname==='/api/state'&&request.method==='GET')return json(await state(env.DB));
+      if(url.pathname==='/api/state'&&request.method==='GET')return json(await (url.searchParams.get('compact')==='1'?compactState(env.DB):state(env.DB)));
+      if(url.pathname==='/api/released'&&request.method==='GET')return releasedPage(env.DB,request);
       if(url.pathname==='/api/attempt'&&request.method==='POST')return attempt(request,env.DB);
       if(url.pathname==='/api/offline-attempt'&&request.method==='POST')return offlineAttempt(request,env.DB);
       if(url.pathname==='/api/feedback'&&request.method==='POST')return savePuzzleFeedback(request,env.DB,false);
@@ -411,4 +534,4 @@ export default {
   }
 };
 // For local tests only; not used as Worker exports.
-export {todayInMadrid,daysAfter,validateTrace,validStart,state,resolvePublicPuzzle,unlocked,scheduleAdmin,scheduleMutation};
+export {todayInMadrid,daysAfter,validateTrace,validStart,state,compactState,releasedBoundary,releasedPage,resolvePublicPuzzle,unlocked,scheduleAdmin,scheduleMutation,getReleasedRows};
