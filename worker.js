@@ -67,6 +67,67 @@ async function getReleasedRows(db, throughSlot) {
   }
   return rows;
 }
+// Find the last *consecutively* released Daily without retrieving all past
+// puzzles. A missing slot, a missing source puzzle, or a non-Daily source
+// prevents later scheduled entries from becoming public via any endpoint.
+async function releasedBoundary(db,throughSlot) {
+  if(throughSlot<FIRST_DAILY)return FIRST_DAILY-1;
+  const discontinuity=await db.prepare(`SELECT previous_slot FROM (
+    SELECT s.slot_number,
+      LAG(s.slot_number,1,?) OVER (ORDER BY s.slot_number) AS previous_slot
+    FROM daily_schedule AS s
+    JOIN puzzles AS p ON p.number=s.puzzle_number AND p.publication='daily'
+    WHERE s.slot_number BETWEEN ? AND ?
+  ) WHERE slot_number<>previous_slot+1 ORDER BY slot_number LIMIT 1`)
+    .bind(FIRST_DAILY-1,FIRST_DAILY,throughSlot).first();
+  if(discontinuity)return discontinuity.previous_slot;
+  const end=await db.prepare(`SELECT MAX(s.slot_number) AS last FROM daily_schedule AS s
+    JOIN puzzles AS p ON p.number=s.puzzle_number AND p.publication='daily'
+    WHERE s.slot_number BETWEEN ? AND ?`).bind(FIRST_DAILY,throughSlot).first();
+  return end?.last??FIRST_DAILY-1;
+}
+
+// New website clients need only today's Daily, the original 14 archive
+// puzzles, and a first page of released Dailies. The remaining history
+// comes from /api/released as needed; it is never assembled in JS here.
+async function compactState(db,at=new Date()) {
+  const date=todayInMadrid(at),start=await getLaunchDate(db);
+  const archived=(await db.prepare(`SELECT * FROM puzzles
+    WHERE publication='archive' AND number BETWEEN 15 AND 28
+    ORDER BY number`).all()).results.map(p=>toPublicPuzzle(p));
+  let status='not_launched',daily=null,releasedDaily=[];
+  let lastReleasedNumber=FIRST_DAILY-1,nextDailyScheduled=false;
+  if(validStart(start)) {
+    const offset=daysAfter(date,start);
+    if(offset<0)status='upcoming';
+    else {
+      const target=FIRST_DAILY+offset;
+      lastReleasedNumber=await releasedBoundary(db,target);
+      if(lastReleasedNumber>=FIRST_DAILY) {
+        const page=(await db.prepare(`SELECT s.slot_number,p.* FROM daily_schedule AS s
+          JOIN puzzles AS p ON p.number=s.puzzle_number AND p.publication='daily'
+          WHERE s.slot_number BETWEEN ? AND ?
+          ORDER BY s.slot_number LIMIT 100`)
+          .bind(FIRST_DAILY,lastReleasedNumber).all()).results;
+        releasedDaily=page.map(p=>toPublicPuzzle(p,p.slot_number));
+      }
+      if(lastReleasedNumber===target) {
+        const row=await resolvePublicPuzzle(db,target);
+        if(row){
+          status='live';daily=toPublicPuzzle(row,target);
+          const tomorrow=await db.prepare(`SELECT 1 AS present FROM daily_schedule AS s
+            JOIN puzzles AS p ON p.number=s.puzzle_number AND p.publication='daily'
+            WHERE s.slot_number=?`).bind(target+1).first();
+          nextDailyScheduled=!!tomorrow;
+        }else status='awaiting_puzzle';
+      }else status='awaiting_puzzle';
+    }
+  }
+  return {timezone:TZ,date,status,daily,archive:archived,releasedDaily,
+    lastReleasedNumber,nextDailyScheduled,
+    dailyStart:validStart(start)?start:null};
+}
+
 // Paginated released archive for future website/app versions. A page-size
 // limit is not a lifetime puzzle limit; callers can request the next page.
 async function releasedPage(db,request,at=new Date()) {
@@ -77,10 +138,10 @@ async function releasedPage(db,request,at=new Date()) {
   const start=await getLaunchDate(db);
   const offset=validStart(start)?daysAfter(todayInMadrid(at),start):-1;
   if(offset<0)return json({items:[],nextAfter:after,hasMore:false});
-  const through=FIRST_DAILY+offset;
+  const through=await releasedBoundary(db,FIRST_DAILY+offset);
   const rows=(await db.prepare(`SELECT s.slot_number,p.* FROM daily_schedule s
-    JOIN puzzles p ON p.number=s.puzzle_number
-    WHERE s.slot_number>? AND s.slot_number<=? AND p.publication='daily'
+    JOIN puzzles p ON p.number=s.puzzle_number AND p.publication='daily'
+    WHERE s.slot_number>? AND s.slot_number<=?
     ORDER BY s.slot_number LIMIT 101`).bind(after,through).all()).results;
   const items=rows.slice(0,100);
   return json({items:items.map(p=>toPublicPuzzle(p,p.slot_number)),
@@ -463,7 +524,7 @@ export default {
         const [row,start]=await Promise.all([env.DB.prepare('SELECT COUNT(*) as total FROM puzzles').first(),getLaunchDate(env.DB)]);
         return json({ok:true,puzzleCount:row.total,dailyConfigured:validStart(start),timezone:TZ});
       }
-      if(url.pathname==='/api/state'&&request.method==='GET')return json(await state(env.DB));
+      if(url.pathname==='/api/state'&&request.method==='GET')return json(await (url.searchParams.get('compact')==='1'?compactState(env.DB):state(env.DB)));
       if(url.pathname==='/api/released'&&request.method==='GET')return releasedPage(env.DB,request);
       if(url.pathname==='/api/attempt'&&request.method==='POST')return attempt(request,env.DB);
       if(url.pathname==='/api/offline-attempt'&&request.method==='POST')return offlineAttempt(request,env.DB);
@@ -473,4 +534,4 @@ export default {
   }
 };
 // For local tests only; not used as Worker exports.
-export {todayInMadrid,daysAfter,validateTrace,validStart,state,resolvePublicPuzzle,unlocked,scheduleAdmin,scheduleMutation,getReleasedRows,releasedPage};
+export {todayInMadrid,daysAfter,validateTrace,validStart,state,compactState,releasedBoundary,releasedPage,resolvePublicPuzzle,unlocked,scheduleAdmin,scheduleMutation,getReleasedRows};
