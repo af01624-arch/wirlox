@@ -747,7 +747,7 @@ canvas#wheel{transform:translateY(65px)}
 </div>
 <div class="head">
  <div class="panel">
-  <h1>WIRLOX <span class="version">· FACTORY 5.10.18 · BANKS 01–02</span></h1>
+  <h1>WIRLOX <span class="version">· FACTORY 5.10.20 · UNLIMITED DAILY ARCHIVE</span></h1>
   <div class="sub">← → position · ↑ ↓ change letter · opposite pair moves with it</div>
   <div class="dayMood" id="dayMood">PUZZLE 01 / 14 · WARM-UP · 14 LETTERS</div>
   <div class="statLine">Time: <strong id="timer">0:00</strong> <span class="sep">|</span> Moves: <strong id="moves">0</strong> <span class="sep">|</span> PB: <strong id="pb">—</strong> <span class="sep">|</span> Word: <strong id="wordCount">1 / 3</strong><span id="minimumHeader" hidden> <span class="sep">|</span> Perfect: <strong id="minimumHeaderScore">—</strong></span></div>
@@ -864,6 +864,8 @@ canvas#wheel{transform:translateY(65px)}
     <div class="eyebrow">WIRLOX · PUZZLE BANKS 01–02</div>
     <h2 id="archiveHeading">Archive</h2>
     <div id="archiveList"></div>
+    <button id="archiveLoadMore" type="button" hidden>Load more Daily puzzles</button>
+    <div id="archiveLoadStatus" role="status" aria-live="polite" style="font-size:11px;color:#a9c5dc;margin:7px 0"></div>
     <button id="archiveBack" type="button">← Back</button>
   </div>
 </div>
@@ -914,10 +916,63 @@ let currentDailyNumber=null;
 let userChosePuzzle=false;
 let serverDateLabel=null;
 // Factory 5.9: a server-anchored Madrid clock and safe refresh of today's release.
-let dailyStatus='not_launched',dailyStartDate=null,lastLoadedMadridDate=null;
+ let dailyStatus='not_launched',dailyStartDate=null,lastLoadedMadridDate=null;
+ let nextDailyScheduled=false;
 let serverClockBaseMs=null,serverClockBasePerf=0;
 let activeApiRefresh=null,lastApiRequestPerf=-Infinity;
-let pendingDailyNumber=null;
+ let pendingDailyNumber=null;
+ // Lazy public archive: only the currently loaded Daily pages occupy memory.
+ // The array is sparse so each entry retains its immutable public number (index + 1).
+ let archiveCursor=28,archiveHasMore=false,archivePageLoading=false;
+ let archiveNewestReleased=28;
+ const loadedPuzzleIndexes=()=>Object.keys(PUZZLES).map(Number)
+  .filter(i=>Number.isInteger(i)&&PUZZLES[i]).sort((a,b)=>a-b);
+ function redrawPuzzleSelector(){
+  $('puzzle').innerHTML=loadedPuzzleIndexes().map(i=>{
+   const p=PUZZLES[i];return `<option value="${i}">${puzzleLabel(i)} · ${p.words.join(' / ')}</option>`;
+  }).join('');
+  $('puzzle').value=String(puzzleIndex);
+ }
+ function nextAvailablePuzzleIndex(){
+  for(let i=puzzleIndex+1;i<PUZZLES.length;i++)if(PUZZLES[i])return i;
+  return loadedPuzzleIndexes()[0]??0;
+ }
+ function refreshArchiveLoadButton(){
+  const b=$('archiveLoadMore');
+  b.hidden=FACTORY_PRIVATE||!archiveHasMore;
+  b.disabled=archivePageLoading;
+  b.textContent=archivePageLoading?'Loading…':'Load more Daily puzzles';
+  const loaded=loadedPuzzleIndexes().length;
+  $('archiveLoadStatus').textContent=FACTORY_PRIVATE?'':
+   `${loaded} puzzles available on this device${archiveHasMore?' · more released Dailies can be loaded':''}`;
+ }
+ async function loadReleasedArchivePage(){
+  if(FACTORY_PRIVATE||archivePageLoading||!archiveHasMore)return;
+  archivePageLoading=true;refreshArchiveLoadButton();
+  const previousCursor=archiveCursor;
+  try{
+   const r=await fetch(`/api/released?after=${previousCursor}`,{cache:'no-store'});
+   if(!r.ok)throw Error('Archive page HTTP '+r.status);
+   const page=await r.json();
+   if(!page||!Array.isArray(page.items)||page.items.length>100 ||
+      page.items.some((p,i)=>!validRemotePuzzle(p,previousCursor+i+1)) ||
+      !Number.isInteger(page.nextAfter)||
+      page.nextAfter!==previousCursor+page.items.length ||
+      typeof page.hasMore!=='boolean' || (page.hasMore&&!page.items.length))
+      throw Error('Invalid or incomplete released archive page');
+   for(const p of page.items)PUZZLES[p.number-1]=fromD1(p);
+   archiveCursor=page.nextAfter;
+   archiveHasMore=page.hasMore && archiveCursor<archiveNewestReleased;
+   redrawPuzzleSelector();
+   if(!$('archiveView').hidden){
+    const list=$('archiveList'),scrollTop=list.scrollTop;
+    showArchive();list.scrollTop=scrollTop;
+   }
+  }catch(e){
+   console.warn('Released archive page unavailable:',e);
+   $('archiveLoadStatus').textContent='Could not load more Daily puzzles. Please try again.';
+  }finally{archivePageLoading=false;refreshArchiveLoadButton();}
+ }
 const madridPartsFormat=new Intl.DateTimeFormat('en-GB',{
  timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit',
  hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'
@@ -957,7 +1012,7 @@ function madridMidnightForDateMs(ymd){
 function updateDailyCountdown(){
  const counter=$('splashDailyCountdown');
  const awaitingFirst=dailyStatus==='upcoming'&&/^\d{4}-\d{2}-\d{2}$/.test(dailyStartDate||'');
- const awaitingNext=dailyStatus==='live'&&currentDailyNumber!==null&&currentDailyNumber<56;
+  const awaitingNext=dailyStatus==='live'&&currentDailyNumber!==null&&nextDailyScheduled;
  const visible=awaitingFirst||awaitingNext;
  counter.hidden=!visible;
  $('splashDailyIdentity').classList.toggle('countingDown',visible);
@@ -1144,7 +1199,8 @@ function saveReview(){
  const old=readReview();writeReview({feel:old.feel,note:$('feedbackNote').value.trim()});
  submitReviewToD1();
 }
-function bankNotes(){return [FACTORY_PRIVATE?'WIRLOX — Private Factory':'WIRLOX — Puzzle Banks 01–02',...PUZZLES.map((p,i)=>{
+function bankNotes(){return [FACTORY_PRIVATE?'WIRLOX — Private Factory':'WIRLOX — Puzzle Archive',...loadedPuzzleIndexes().map(i=>{
+  const p=PUZZLES[i];
  const stored=sessionPB[p.name];let best=stored??null;
  if(best===null){try{best=Number(localStorage.getItem((FACTORY_PRIVATE?'wirlox-private-':'wirlox-factory4-')+p.name))||null;}catch(e){}}
  const key=(FACTORY_PRIVATE?'wirlox-private-review-':'wirlox-factory4-review-')+p.name;let r=sessionReview[key]||null;
@@ -1172,7 +1228,7 @@ function updateUI(){
  $('minimumHeader').hidden=!alreadyPlayed;
  $('minimumHeaderScore').textContent=alreadyPlayed?p.reference:'—';
  $('tierLine').textContent=`Excellent ≤ ${p.excellent} · Good ≤ ${p.good}`;
- const nextText=puzzleIndex===PUZZLES.length-1?'Back to puzzle 01 ↺':'Next puzzle →';
+ const nextText=nextAvailablePuzzleIndex()<=puzzleIndex?'Back to puzzle 01 ↺':'Next puzzle →';
   $('next').textContent=nextText;
   $('stagebar').innerHTML=p.words.map((word,i)=>`<div class="wordpill ${i<level?'done':i===level?'active':''}">${i<level?'✓ ':''}${word}${i<level?` · ${breakdown[i]}`:''}</div>`).join('');
   // Approved target-word hierarchy: one unmistakable current word, two quieter words.
@@ -1261,13 +1317,15 @@ function archiveGrade(p,best){
 }
 function showArchive(){
  $('introView').hidden=true;$('quickView').hidden=true;$('archiveView').hidden=false;
- $('archiveList').innerHTML=PUZZLES.map((p,i)=>{
+ $('archiveList').innerHTML=loadedPuzzleIndexes().map(i=>{
+  const p=PUZZLES[i];
   const best=archivePersonalBest(p),grade=archiveGrade(p,best);
   const label=puzzleLabel(i),words=p.words.join(' · ');
   const classes=[i===puzzleIndex?'currentArchive':'',grade?'completedArchive':''].filter(Boolean).join(' ');
   const status=grade?` · ${grade.name} · personal best ${best} moves`:'';
   return `<button type="button" class="${classes}" data-puzzle="${i}" aria-label="${label} · ${words}${status}"><span>${label}</span><span class="archiveRight"><span class="archiveWords">${words}</span>${grade?`<span class="archiveGrade grade${grade.code}" title="${grade.name} · PB ${best} moves" aria-hidden="true">${grade.code}</span>`:''}</span></button>`;
  }).join('');
+ refreshArchiveLoadButton();
  $('readyOverlay').setAttribute('aria-labelledby','archiveHeading');
 }
 function showIntro(){
@@ -1315,6 +1373,7 @@ $('focusHomeLogo').addEventListener('keydown',e=>{
  if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();returnToHome();}
 });
 $('openArchive').addEventListener('click',showArchive);
+$('archiveLoadMore').addEventListener('click',loadReleasedArchivePage);
 $('archiveBack').addEventListener('click',returnToHome);
 $('showHowToPlay').addEventListener('click',showIntro);
 $('backToHome').addEventListener('click',returnToHome);
@@ -1489,7 +1548,7 @@ $('nextDone').addEventListener('click',()=>{reset(true);beginRun();});
 document.querySelectorAll('[data-feel]').forEach(btn=>btn.addEventListener('click',()=>{const o=readReview();o.feel=btn.dataset.feel;o.note=$('feedbackNote').value.trim();writeReview(o);updateFeedback();submitReviewToD1();}));
 $('saveFeel').addEventListener('click',saveReview);
 $('copyFeedback').addEventListener('click',()=>{saveReview();copyAllNotes();});
-$('next').addEventListener('click',()=>{pauseUnfinishedRun();userChosePuzzle=true;pendingDailyNumber=null;puzzleIndex=(puzzleIndex+1)%PUZZLES.length;$('puzzle').value=String(puzzleIndex);reset(true);});
+$('next').addEventListener('click',()=>{pauseUnfinishedRun();userChosePuzzle=true;pendingDailyNumber=null;puzzleIndex=nextAvailablePuzzleIndex();$('puzzle').value=String(puzzleIndex);reset(true);});
 $('puzzle').addEventListener('change',e=>{pauseUnfinishedRun();userChosePuzzle=true;pendingDailyNumber=null;puzzleIndex=Number(e.target.value);reset(true);});
 
  // Factory 4.8: Move the EXISTING UI into an optional phone menu.
@@ -1730,7 +1789,7 @@ async function loadPrivateFactoryPuzzles(){
    const extra=payload.puzzles;
    // First 14 puzzles remain part of the unchanged original HTML.
    // The private API supplies consecutively numbered rows 15 to 42.
-   if(!Array.isArray(extra)||extra.length<21||extra.length>1000||
+   if(!Array.isArray(extra)||extra.length<21||
       extra.some((p,i)=>!validRemotePuzzle(p,i+15)))
     throw Error('Private Factory puzzle bank incomplete or invalid');
    PUZZLES.splice(14,PUZZLES.length-14,...extra.map(fromD1));
@@ -1752,92 +1811,101 @@ async function loadPrivateFactoryPuzzles(){
  })();
  try{return await activeApiRefresh;}finally{activeApiRefresh=null;}
 }
-async function loadD1Archive(trigger='initial'){
- if(FACTORY_PRIVATE)return loadPrivateFactoryPuzzles();
- if(activeApiRefresh)return activeApiRefresh;
- lastApiRequestPerf=performance.now();
- activeApiRefresh=(async()=>{
- try{
-  const response=await fetch('/api/state',{cache:'no-store'});
-  if(!response.ok)throw new Error('Archive API status '+response.status);
-  // Date response header keeps the countdown correct even when the browser's
-  // local clock/time zone is wrong. Local clock is only a fallback.
-  const dateHeader=response.headers?.get?.('date');
-  const clockFromHeader=dateHeader?Date.parse(dateHeader):NaN;
-  const state=await response.json();
-  if(!Array.isArray(state.archive)||!Array.isArray(state.releasedDaily))
-   throw new Error('Archive data missing');
-  const extra=state.archive.slice().sort((a,b)=>a.number-b.number);
-  if(extra.length!==14 || extra.some((p,i)=>!validRemotePuzzle(p,i+15)))
-   throw new Error('D1 archive incomplete or invalid');
-  const released=state.releasedDaily.slice().sort((a,b)=>a.number-b.number);
-  if(released.length>28 || released.some((p,i)=>!validRemotePuzzle(p,i+29)))
-   throw new Error('Released daily data incomplete or invalid');
-  const daily=state.daily;
-  let todayNumber=null;
-  if(state.status==='live'){
-   if(!daily || !validRemotePuzzle(daily,daily.number) ||
-    daily.number<29 || daily.number>56 ||
-    !released.some(p=>p.number===daily.number && p.name===daily.name))
-    throw new Error('Current daily not in released daily list');
-   todayNumber=daily.number;
-  }else if(daily!==null){
-   throw new Error('Unreleased daily unexpectedly present');
-  }
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(state.date||''))
-   throw new Error('Missing Madrid date');
-  const previousDaily=currentDailyNumber;
-  const newDaily=todayNumber!==null && todayNumber!==previousDaily;
-  // Important: refreshes must REPLACE remote puzzles, never append duplicates.
-  // The original 14 built-in puzzles and their personal-best keys stay intact.
-  PUZZLES.splice(14,PUZZLES.length-14,...extra.map(fromD1),...released.map(fromD1));
-  currentDailyNumber=todayNumber;
-  dailyStatus=state.status;
-  dailyStartDate=state.dailyStart||null;
-  lastLoadedMadridDate=state.date;
-  syncDailyStreak(state.date);
-  serverClockBaseMs=Number.isFinite(clockFromHeader)?clockFromHeader:Date.now();
-  serverClockBasePerf=performance.now();
-  recoverCurrentDailyStreak();
-  serverDateLabel=new Intl.DateTimeFormat('en-GB',
-   {weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'UTC'})
-   .format(new Date(state.date+'T12:00:00Z'));
-  $('puzzle').innerHTML=PUZZLES.map((p,i)=>
-   `<option value="${i}">${puzzleLabel(i)} · ${p.words.join(' / ')}</option>`).join('');
-  const safelyAtHome=!gameRunning&&!finished&&
-   !$('readyOverlay').hidden&&(!$('quickView').hidden);
-  if(newDaily){
-   if(trigger==='initial' ? (!userChosePuzzle&&safelyAtHome) : safelyAtHome){
-    puzzleIndex=todayNumber-1;
-    pendingDailyNumber=null;userChosePuzzle=false;
-    $('puzzle').value=String(puzzleIndex);
-    reset(true);
-   }else if(trigger!=='initial' || !userChosePuzzle){
-    pendingDailyNumber=todayNumber;
+ async function loadD1Archive(trigger='initial'){
+  if(FACTORY_PRIVATE)return loadPrivateFactoryPuzzles();
+  if(activeApiRefresh)return activeApiRefresh;
+  lastApiRequestPerf=performance.now();
+  activeApiRefresh=(async()=>{
+   try{
+    // The compact route will be optimized by the matching Worker update.
+    // While rolling out, the Worker may still return the full legacy array.
+    const response=await fetch('/api/state?compact=1',{cache:'no-store'});
+    if(!response.ok)throw Error('Daily API status '+response.status);
+    const dateHeader=response.headers?.get?.('date');
+    const clockFromHeader=dateHeader?Date.parse(dateHeader):NaN;
+    const state=await response.json();
+    if(!Array.isArray(state.archive)||!Array.isArray(state.releasedDaily))
+     throw Error('Archive data missing');
+    const extra=state.archive.slice().sort((a,b)=>a.number-b.number);
+    if(extra.length!==14||extra.some((p,i)=>!validRemotePuzzle(p,i+15)))
+     throw Error('D1 archive incomplete or invalid');
+    const releasedBootstrap=state.releasedDaily.slice(0,100).sort((a,b)=>a.number-b.number);
+    if(releasedBootstrap.some((p,i)=>!validRemotePuzzle(p,i+29)))
+     throw Error('Released archive starts with invalid puzzle numbering');
+    const daily=state.daily;
+    let todayNumber=null;
+    if(state.status==='live'){
+     if(!daily||!Number.isSafeInteger(daily.number)||daily.number<29||
+        !validRemotePuzzle(daily,daily.number))
+      throw Error('Invalid current Daily');
+     todayNumber=daily.number;
+    }else if(daily!==null){
+     throw Error('Unreleased Daily unexpectedly present');
+    }
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(state.date||''))
+     throw Error('Missing Madrid date');
+    const previousDaily=currentDailyNumber;
+    const newDaily=todayNumber!==null&&todayNumber!==previousDaily;
+    // Immutable public number maps directly to the index, even when earlier
+    // Daily archive pages have not yet been requested.
+    extra.forEach(p=>{PUZZLES[p.number-1]=fromD1(p);});
+    for(const p of releasedBootstrap)PUZZLES[p.number-1]=fromD1(p);
+    if(daily)PUZZLES[daily.number-1]=fromD1(daily);
+    archiveCursor=Math.max(archiveCursor,releasedBootstrap.length?releasedBootstrap.at(-1).number:28);
+    const fullReleased=state.releasedDaily;
+    const lastInLegacy=fullReleased.length?fullReleased.at(-1).number:28;
+    const lastFromWorker=Number.isSafeInteger(state.lastReleasedNumber)?state.lastReleasedNumber:28;
+    archiveNewestReleased=Math.max(archiveNewestReleased,lastInLegacy,lastFromWorker,todayNumber||28);
+    archiveHasMore=archiveCursor<archiveNewestReleased;
+    currentDailyNumber=todayNumber;
+    dailyStatus=state.status;
+    dailyStartDate=state.dailyStart||null;
+    // Legacy Worker has no nextDailyScheduled; preserve current behaviour
+    // for days 29–55 until the Worker is upgraded.
+    nextDailyScheduled=typeof state.nextDailyScheduled==='boolean'
+     ?state.nextDailyScheduled:(dailyStatus==='live'&&todayNumber!==null&&todayNumber<56);
+    lastLoadedMadridDate=state.date;
+    syncDailyStreak(state.date);
+    serverClockBaseMs=Number.isFinite(clockFromHeader)?clockFromHeader:Date.now();
+    serverClockBasePerf=performance.now();
+    recoverCurrentDailyStreak();
+    serverDateLabel=new Intl.DateTimeFormat('en-GB',
+     {weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'UTC'})
+     .format(new Date(state.date+'T12:00:00Z'));
+    redrawPuzzleSelector();
+    const safelyAtHome=!gameRunning&&!finished&&
+     !$('readyOverlay').hidden&&(!$('quickView').hidden);
+    if(newDaily){
+     if(trigger==='initial'?(!userChosePuzzle&&safelyAtHome):safelyAtHome){
+      puzzleIndex=todayNumber-1;
+      pendingDailyNumber=null;userChosePuzzle=false;
+      $('puzzle').value=String(puzzleIndex);
+      reset(true);
+     }else if(trigger!=='initial'||!userChosePuzzle){
+      pendingDailyNumber=todayNumber;
+     }
+    }
+    if(!newDaily){
+     if(!PUZZLES[puzzleIndex]){puzzleIndex=0;reset(true);}
+     else{$('puzzle').value=String(puzzleIndex);updateUI();
+      if(!$('quickView').hidden)showQuickReady();}
+    }
+    if(!$('archiveView').hidden)showArchive();
+    updateDailyCountdown();
+    document.title='WIRLOX - A Daily Word Game';
+    const version=document.querySelector('.version');
+    if(version)version.textContent='· FACTORY 5.10.20 · UNLIMITED DAILY ARCHIVE';
+    const archiveTitle=$('archiveView').querySelector('.eyebrow');
+    if(archiveTitle)archiveTitle.textContent='WIRLOX · ARCHIVE';
+    // Load only the first page on first launch (rather than all history).
+    // Failure does not prevent today's Daily from starting.
+    if(archiveHasMore&&archiveCursor===28)void loadReleasedArchivePage();
+   }catch(error){
+    console.warn('WIRLOX D1 unavailable; existing archive puzzles remain playable.',error);
    }
-  }
-  // On first load after midnight, keep the last chosen archive item only
-  // if the player deliberately selected it while the request was in flight.
-  if(!newDaily){
-   if(puzzleIndex>=PUZZLES.length){puzzleIndex=0;reset(true);}
-   else{$('puzzle').value=String(puzzleIndex);updateUI();
-    if(!$('quickView').hidden)showQuickReady();}
-  }
-  // New puzzles are visible in Archive even when a player is finishing an old
-  // daily; the wheel and active puzzle are never reset while playing.
-  if(!$('archiveView').hidden)showArchive();
-  updateDailyCountdown();
-  document.title='WIRLOX - A Daily Word Game';
-  const version=document.querySelector('.version');
-  if(version)version.textContent='· FACTORY 5.10.18 · BANKS 01–04';
-  const archiveTitle=$('archiveView').querySelector('.eyebrow');
-  if(archiveTitle)archiveTitle.textContent='WIRLOX · PUZZLE BANKS 01–04';
- }catch(error){
-  console.warn('WIRLOX D1 unavailable; existing archive puzzles remain playable.',error);
+  })();
+  try{return await activeApiRefresh;}finally{activeApiRefresh=null;}
  }
- })();
- try{return await activeApiRefresh;}finally{activeApiRefresh=null;}
-}
 // This timer is display-only. The Worker alone decides which puzzles unlock.
 setInterval(()=>{updateDailyCountdown();checkForDailyRefresh();},1000);
 document.addEventListener('visibilitychange',()=>{
