@@ -724,6 +724,44 @@ canvas#wheel{transform:translateY(65px)}
  body:has(#solutionReplay:not([hidden])) canvas#wheel{transform:translateY(-107px) scale(1.04)!important}
 }
 
+
+/* WIRLOX 2026-11-11 WEB READABILITY ONLY
+   Mobile: enlarge bottom Moves/Time/PB without changing positions.
+   Desktop: enlarge/brighten top-right Moves, preserve other elements. */
+@media (max-width:700px) {
+  #focusUI .focusStatsFooter {
+    font-size:13px;
+    letter-spacing:.045em;
+    gap:18px;
+    color:#a7c4d9;
+    white-space:nowrap;
+  }
+  #focusUI .focusStatsFooter b {
+    font-size:18px;
+    font-weight:800;
+    color:#e7f5fb;
+    letter-spacing:0;
+    margin-left:5px;
+  }
+}
+@media (max-width:360px) {
+  #focusUI .focusStatsFooter {font-size:12px;gap:12px}
+  #focusUI .focusStatsFooter b {font-size:16px;margin-left:3px}
+}
+@media (min-width:701px) {
+  #focusUI .focusMoves {
+    font-size:14px;
+    font-weight:800;
+    letter-spacing:.09em;
+    color:#d2e7f3;
+  }
+  #focusUI .focusMoves strong {
+    font-size:21px;
+    color:#f3fbff;
+    font-weight:800;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -2029,6 +2067,29 @@ document.addEventListener('keydown',e=>{
 },true);
 
 reset();loadD1Archive();requestAnimationFrame(render);
+})();
+</script>
+<script>
+/* WIRLOX desktop date: visual centering only, keeping original flex footprint. */
+(function(){
+  const date = document.querySelector('#focusUI .focusPuzzle');
+  const nav = document.querySelector('#focusUI .focusNav');
+  if (!date || !nav) return;
+  let queued=false;
+  function centerDate(){
+    date.style.transform='none';
+    if(window.matchMedia('(max-width:700px)').matches)return;
+    const n=nav.getBoundingClientRect(), d=date.getBoundingClientRect();
+    const delta=(n.left+n.width/2)-(d.left+d.width/2);
+    date.style.transform='translateX('+delta.toFixed(2)+'px)';
+  }
+  function schedule(){
+    if(queued)return; queued=true;
+    requestAnimationFrame(function(){queued=false;centerDate();});
+  }
+  window.addEventListener('resize',schedule);
+  new MutationObserver(schedule).observe(date,{childList:true,characterData:true,subtree:true});
+  schedule();
 })();
 </script>
 </body>
