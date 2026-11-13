@@ -857,7 +857,32 @@ canvas#wheel{transform:translateY(65px)}
   body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext.done small::after{
     content:attr(data-word-number);font-size:9px;
   }
-  #focusUI .focusMoves strong{font-size:40px;line-height:1}
+  /* Keep the five-letter word centred while its number sits left in its box. */
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext{position:relative}
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext small{
+    position:absolute;left:11px;top:50%;transform:translateY(-50%);
+    font-size:14px;line-height:1;margin:0;
+  }
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext.done small::after{font-size:14px}
+  /* Four thresholds, with the existing PB value first. */
+  #focusUI .focusPBTopTier{display:inline-flex;align-items:baseline}
+  #focusUI .focusTiers{gap:14px}
+  /* The same live MOVES element used on mobile, now beside the desktop target. */
+  #focusUI .focusMoves{display:none}
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusMovesSideBox{
+    display:flex;position:absolute;top:75px!important;
+    left:auto;right:calc(50% + 192px);width:112px;height:118px;
+    flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    background:rgba(16,31,60,.88);border:2px solid #d4a25d;
+    border-radius:20px;box-shadow:0 2px 15px #0004;pointer-events:none;
+  }
+  #focusUI .focusMovesSideBox span{
+    font-size:12px;font-weight:800;letter-spacing:.10em;line-height:1.2;color:#deb67e;
+  }
+  #focusUI .focusMovesSideBox strong{
+    font-size:56px;line-height:1;font-weight:850;color:#ffd69b;
+    text-shadow:0 0 18px #e7a45d50;font-variant-numeric:tabular-nums;
+  }
 }
 /* Mobile browsers cannot force portrait orientation. Cover phone-landscape
    gameplay with a simple reminder; never affect desktop browser windows. */
