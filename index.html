@@ -762,6 +762,49 @@ canvas#wheel{transform:translateY(65px)}
   }
 }
 
+
+/* game-testing: portrait word panels from the approved 390×849 preview.
+   Live gameplay only: no wheel, arrows, navigation, scoring, replay or desktop changes. */
+@media (max-width:700px) and (orientation:portrait) {
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusQueue{
+    width:min(300px,calc(100vw - 54px));display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    gap:7px;margin-top:7px;align-items:stretch;
+  }
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusThen{display:none}
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext{
+    min-width:0;height:34px;display:flex;align-items:center;justify-content:center;
+    gap:6px;font-size:20px;font-weight:750;letter-spacing:.045em;color:#b0c4d5;
+    border:2px solid #d4a25d;background:rgba(31,64,84,.18);
+    border-radius:12px;padding:5px 4px;white-space:nowrap;
+  }
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext:not(.done){order:-1}
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext small{
+    font-size:9px;color:#6b8aa4;letter-spacing:0;font-weight:700;
+    margin-right:0;flex:none;
+  }
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext.done{
+    color:#bdffd4;border-color:#d4a25d;
+    -webkit-text-stroke:.5px rgba(180,255,212,.5);
+    text-shadow:0 0 13px rgba(110,255,180,.88),0 0 5px rgba(110,255,180,.60);
+  }
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext.done small{
+    font-size:0;color:#bdffd4;text-shadow:0 0 8px rgba(110,255,180,.65);
+  }
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext.done small::after{
+    content:attr(data-word-number);font-size:9px;
+  }
+}
+@media (max-width:360px) and (orientation:portrait) {
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext{
+    font-size:clamp(15px,5vw,20px);gap:4px;
+  }
+}
+@media (max-width:700px) and (orientation:portrait) and (max-height:650px) {
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusQueue{margin-top:6px;gap:6px}
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext{height:32px;font-size:17px}
+}
+
 </style>
 </head>
 <body>
@@ -1275,7 +1318,7 @@ function updateUI(){
   $('focusCaption').textContent=`WORD ${currentIndex+1} OF ${p.words.length}`;
   $('focusCurrent').textContent=p.words[currentIndex];
   const doneWords=p.words.slice(0,currentIndex).map((word,i)=>
-    `<div class="focusNext done"><small>✓</small>${word}</div>`).join('');
+    `<div class="focusNext done"><small data-word-number="${String(i+1).padStart(2,'0')}">✓</small>${word}</div>`).join('');
   const nextWords=p.words.slice(currentIndex+1).map((word,i)=>
     `<div class="focusNext"><small>${String(currentIndex+i+2).padStart(2,'0')}</small>${word}</div>`).join('');
   $('focusQueue').innerHTML=(doneWords?`<span class="focusThen">DONE</span>${doneWords}`:'')+
