@@ -762,6 +762,65 @@ canvas#wheel{transform:translateY(65px)}
   }
 }
 
+
+/* game-testing: portrait word panels from the approved 390×849 preview.
+   Live gameplay only: no wheel, arrows, navigation, scoring, replay or desktop changes. */
+@media (max-width:700px) and (orientation:portrait) {
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusQueue{
+    width:min(300px,calc(100vw - 54px));display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    gap:7px;margin-top:7px;align-items:stretch;
+  }
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusThen{display:none}
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext{
+    min-width:0;height:34px;display:flex;align-items:center;justify-content:center;
+    gap:6px;font-size:20px;font-weight:750;letter-spacing:.045em;color:#b0c4d5;
+    border:2px solid #d4a25d;background:rgba(31,64,84,.18);
+    border-radius:12px;padding:5px 4px;white-space:nowrap;
+  }
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext:not(.done){order:-1}
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext small{
+    font-size:9px;color:#6b8aa4;letter-spacing:0;font-weight:700;
+    margin-right:0;flex:none;
+  }
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext.done{
+    color:#bdffd4;border-color:#d4a25d;
+    -webkit-text-stroke:.5px rgba(180,255,212,.5);
+    text-shadow:0 0 13px rgba(110,255,180,.88),0 0 5px rgba(110,255,180,.60);
+  }
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext.done small{
+    font-size:0;color:#bdffd4;text-shadow:0 0 8px rgba(110,255,180,.65);
+  }
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext.done small::after{
+    content:attr(data-word-number);font-size:9px;
+  }
+}
+@media (max-width:360px) and (orientation:portrait) {
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext{
+    font-size:clamp(15px,5vw,20px);gap:4px;
+  }
+}
+@media (max-width:700px) and (orientation:portrait) and (max-height:650px) {
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusQueue{margin-top:6px;gap:6px}
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext{height:32px;font-size:17px}
+}
+
+/* game-testing: live MOVES panel beside the existing portrait up arrow only. */
+#focusUI .focusMovesSideBox{display:none}
+@media (max-width:700px) and (orientation:portrait) {
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusMovesSideBox{
+    display:flex;position:absolute;left:10px;right:calc(50% + 54px);height:88px;
+    flex-direction:column;align-items:center;justify-content:center;gap:1px;
+    background:rgba(16,31,60,.88);border:2px solid #d4a25d;border-radius:20px;
+    box-shadow:0 2px 15px #0004;pointer-events:none;
+  }
+  #focusUI .focusMovesSideBox span{
+    font-size:13px;font-weight:800;letter-spacing:.10em;line-height:1.2;color:#deb67e;
+  }
+  #focusUI .focusMovesSideBox strong{
+    font-size:40px;line-height:1;font-weight:850;color:#ffd69b;text-shadow:0 0 18px #e7a45d50;
+  }
+}
 </style>
 </head>
 <body>
@@ -781,6 +840,7 @@ canvas#wheel{transform:translateY(65px)}
       <span class="focusTier">GOOD <b id="focusGood">≤28</b></span>
       <span class="focusTier">AVERAGE <b id="focusAverage">≤36</b></span></div>
   </div>
+  <div class="focusMovesSideBox" id="focusMovesSideBox"><span>MOVES</span><strong id="focusMovesSide">0</strong></div>
   <div class="focusStatsFooter"><span>MOVES <b id="focusMovesMobile">0</b></span><span>TIME <b id="focusTime">0:00</b></span><span>PB <b id="focusPB">—</b></span></div>
 </div>
 <div class="head">
@@ -1275,7 +1335,7 @@ function updateUI(){
   $('focusCaption').textContent=`WORD ${currentIndex+1} OF ${p.words.length}`;
   $('focusCurrent').textContent=p.words[currentIndex];
   const doneWords=p.words.slice(0,currentIndex).map((word,i)=>
-    `<div class="focusNext done"><small>✓</small>${word}</div>`).join('');
+    `<div class="focusNext done"><small data-word-number="${String(i+1).padStart(2,'0')}">✓</small>${word}</div>`).join('');
   const nextWords=p.words.slice(currentIndex+1).map((word,i)=>
     `<div class="focusNext"><small>${String(currentIndex+i+2).padStart(2,'0')}</small>${word}</div>`).join('');
   $('focusQueue').innerHTML=(doneWords?`<span class="focusThen">DONE</span>${doneWords}`:'')+
@@ -1283,7 +1343,7 @@ function updateUI(){
   $('focusExcellent').textContent='≤'+p.excellent;
   $('focusGood').textContent='≤'+p.good;
   $('focusAverage').textContent='≤'+p.average;
-  $('focusMoves').textContent=String(moves);$('focusMovesMobile').textContent=String(moves);
+  $('focusMoves').textContent=String(moves);$('focusMovesMobile').textContent=String(moves);$('focusMovesSide').textContent=String(moves);
   $('focusPB').textContent=getPB()??'—';
 }
 // Factory 5.10.17: Keep one unfinished attempt per puzzle, including its move trace.
@@ -1654,6 +1714,7 @@ $('puzzle').addEventListener('change',e=>{pauseUnfinishedRun();userChosePuzzle=t
       // without reducing the 88x88px hit area.
       btn.style.left=x+'px';btn.style.top=y+'px';
     }
+    $('focusMovesSideBox').style.top=(points.up[1]-44)+'px';
   }
  function clearMobileArrowPositions(){
    for(const btn of Object.values(mobileArrowButtons)){
