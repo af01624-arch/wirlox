@@ -821,6 +821,12 @@ canvas#wheel{transform:translateY(65px)}
     font-size:40px;line-height:1;font-weight:850;color:#ffd69b;text-shadow:0 0 18px #e7a45d50;
   }
 }
+/* Portrait-only PB beside the rating thresholds; original footer elements remain for JS. */
+#focusUI .focusPBTopTier{display:none}
+@media (max-width:700px) and (orientation:portrait) {
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusPBTopTier{display:flex}
+  #focusUI .focusStatsFooter{display:none}
+}
 </style>
 </head>
 <body>
@@ -836,7 +842,7 @@ canvas#wheel{transform:translateY(65px)}
     <div class="focusQueue" id="focusQueue"><span class="focusThen">THEN</span>
       <div class="focusNext"><small>02</small>PLANT</div><div class="focusNext"><small>03</small>TRAIN</div>
     </div>
-    <div class="focusTiers"><span class="focusTier excellent">EXCELLENT <b id="focusExcellent">≤23</b></span>
+    <div class="focusTiers"><span class="focusTier focusPBTopTier">PB <b id="focusPBTop">—</b></span><span class="focusTier excellent">EXCELLENT <b id="focusExcellent">≤23</b></span>
       <span class="focusTier">GOOD <b id="focusGood">≤28</b></span>
       <span class="focusTier">AVERAGE <b id="focusAverage">≤36</b></span></div>
   </div>
@@ -1344,7 +1350,7 @@ function updateUI(){
   $('focusGood').textContent='≤'+p.good;
   $('focusAverage').textContent='≤'+p.average;
   $('focusMoves').textContent=String(moves);$('focusMovesMobile').textContent=String(moves);$('focusMovesSide').textContent=String(moves);
-  $('focusPB').textContent=getPB()??'—';
+  $('focusPB').textContent=getPB()??'—';$('focusPBTop').textContent=$('focusPB').textContent;
 }
 // Factory 5.10.17: Keep one unfinished attempt per puzzle, including its move trace.
 // A Home visit, page reload or Dock-app restart must never silently start again.
