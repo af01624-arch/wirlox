@@ -805,6 +805,22 @@ canvas#wheel{transform:translateY(65px)}
   body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext{height:32px;font-size:17px}
 }
 
+/* game-testing: live MOVES panel beside the existing portrait up arrow only. */
+#focusUI .focusMovesSideBox{display:none}
+@media (max-width:700px) and (orientation:portrait) {
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusMovesSideBox{
+    display:flex;position:absolute;left:10px;right:calc(50% + 54px);height:88px;
+    flex-direction:column;align-items:center;justify-content:center;gap:1px;
+    background:rgba(16,31,60,.88);border:2px solid #d4a25d;border-radius:20px;
+    box-shadow:0 2px 15px #0004;pointer-events:none;
+  }
+  #focusUI .focusMovesSideBox span{
+    font-size:13px;font-weight:800;letter-spacing:.10em;line-height:1.2;color:#deb67e;
+  }
+  #focusUI .focusMovesSideBox strong{
+    font-size:40px;line-height:1;font-weight:850;color:#ffd69b;text-shadow:0 0 18px #e7a45d50;
+  }
+}
 </style>
 </head>
 <body>
@@ -824,6 +840,7 @@ canvas#wheel{transform:translateY(65px)}
       <span class="focusTier">GOOD <b id="focusGood">≤28</b></span>
       <span class="focusTier">AVERAGE <b id="focusAverage">≤36</b></span></div>
   </div>
+  <div class="focusMovesSideBox" id="focusMovesSideBox"><span>MOVES</span><strong id="focusMovesSide">0</strong></div>
   <div class="focusStatsFooter"><span>MOVES <b id="focusMovesMobile">0</b></span><span>TIME <b id="focusTime">0:00</b></span><span>PB <b id="focusPB">—</b></span></div>
 </div>
 <div class="head">
@@ -1326,7 +1343,7 @@ function updateUI(){
   $('focusExcellent').textContent='≤'+p.excellent;
   $('focusGood').textContent='≤'+p.good;
   $('focusAverage').textContent='≤'+p.average;
-  $('focusMoves').textContent=String(moves);$('focusMovesMobile').textContent=String(moves);
+  $('focusMoves').textContent=String(moves);$('focusMovesMobile').textContent=String(moves);$('focusMovesSide').textContent=String(moves);
   $('focusPB').textContent=getPB()??'—';
 }
 // Factory 5.10.17: Keep one unfinished attempt per puzzle, including its move trace.
@@ -1697,6 +1714,7 @@ $('puzzle').addEventListener('change',e=>{pauseUnfinishedRun();userChosePuzzle=t
       // without reducing the 88x88px hit area.
       btn.style.left=x+'px';btn.style.top=y+'px';
     }
+    $('focusMovesSideBox').style.top=(points.up[1]-44)+'px';
   }
  function clearMobileArrowPositions(){
    for(const btn of Object.values(mobileArrowButtons)){
