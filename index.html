@@ -827,23 +827,50 @@ canvas#wheel{transform:translateY(65px)}
   body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusPBTopTier{display:flex}
   #focusUI .focusStatsFooter{display:none}
 }
-/* WIRLOX testing: desktop word/presentation readability only.
-   Compact/short windows and touch devices retain their approved sizes. */
-@media (min-width:701px) and (min-height:601px) and (hover:hover) and (pointer:fine) {
-  #focusUI .focusNext{font-size:20px}
+/* Desktop live-play words: same two-column gold-outlined layout as approved portrait. 
+   Queue width matches the current word box; compact windows and replay stay unchanged. */
+@media (min-width:701px) and (min-height:601px) {
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusQueue{
+    width:345px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:7px;margin-top:7px;align-items:stretch;
+  }
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusThen{display:none}
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext{
+    min-width:0;height:42px;display:flex;align-items:center;justify-content:center;
+    gap:6px;font-size:20px;font-weight:750;letter-spacing:.045em;color:#b0c4d5;
+    border:2px solid #d4a25d;background:rgba(31,64,84,.18);
+    border-radius:12px;padding:5px 4px;white-space:nowrap;
+  }
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext:not(.done){order:-1}
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext small{
+    font-size:9px;color:#6b8aa4;letter-spacing:0;font-weight:700;
+    margin-right:0;flex:none;
+  }
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext.done{
+    color:#bdffd4;border-color:#d4a25d;
+    -webkit-text-stroke:.5px rgba(180,255,212,.5);
+    text-shadow:0 0 13px rgba(110,255,180,.88),0 0 5px rgba(110,255,180,.60);
+  }
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext.done small{
+    font-size:0;color:#bdffd4;text-shadow:0 0 8px rgba(110,255,180,.65);
+  }
+  body:not(:has(#solutionReplay:not([hidden]))) #focusUI .focusNext.done small::after{
+    content:attr(data-word-number);font-size:9px;
+  }
   #focusUI .focusMoves strong{font-size:40px;line-height:1}
 }
-/* iPhone browser/PWA cannot reliably lock device rotation.
-   Keep portrait game untouched; show a prompt on phone landscape instead. */
+/* Mobile browsers cannot force portrait orientation. Cover phone-landscape
+   gameplay with a simple reminder; never affect desktop browser windows. */
 #portraitOnlyNotice{display:none;position:fixed;inset:0;z-index:99999;
   align-items:center;justify-content:center;padding:24px;text-align:center;
   background:#080d1e;color:#e3f1fa;font:800 20px/1.4 Arial,Helvetica,sans-serif}
-@media (orientation:landscape) and (max-height:600px) and (pointer:coarse) {
-  #portraitOnlyNotice{display:flex}
+@media (orientation:landscape) {
+  html.wirloxPhone #portraitOnlyNotice{display:flex}
 }
 </style>
 </head>
 <body>
+<script>if ((navigator.maxTouchPoints > 0 || 'ontouchstart' in window) && Math.min(screen.width, screen.height) <= 700) document.documentElement.classList.add('wirloxPhone');</script>
 <div id="portraitOnlyNotice" role="status">Turn your phone upright to play WIRLOX.</div>
 <canvas id="wheel"></canvas>
 <div id="focusUI" aria-label="Current puzzle and target words">
