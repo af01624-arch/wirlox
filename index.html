@@ -912,6 +912,8 @@ canvas#wheel{transform:translateY(65px)}
 #controlDirectionPrompt .controlPromptActions button{width:100%;min-height:46px;font-size:13px;font-weight:700}
 #controlDirectionReverse{background:#c4e4f5;color:#10223b;border-color:#c8e8fb}
 #controlDirectionKeep{background:rgba(24,42,70,.7);color:#cfdfed;border-color:rgba(144,190,229,.38)}
+#controlDirectionPrompt .controlPromptNever{display:flex;align-items:center;gap:10px;margin:0 0 16px;color:#cfdfed;font-size:13px;cursor:pointer}
+#controlDirectionPrompt .controlPromptNever input{appearance:auto;width:18px;height:18px;accent-color:#83d3ff;flex-shrink:0}
 @media(max-width:700px){#controlDirectionPrompt .controlPromptCard{padding:22px 18px}#controlDirectionPrompt h2{font-size:21px}}
 </style>
 </head>
@@ -969,6 +971,7 @@ canvas#wheel{transform:translateY(65px)}
     <h2 id="controlDirectionTitle">Controls feel backwards?</h2>
     <p>Would you prefer the left and right arrows to work the opposite way?</p>
     <p class="controlPromptNote">You can change this anytime in Settings, along with the up/down controls.</p>
+    <label class="controlPromptNever" for="controlDirectionNever"><input id="controlDirectionNever" type="checkbox"> Never show again</label>
     <div class="controlPromptActions">
       <button id="controlDirectionReverse" type="button">Reverse left/right</button>
       <button id="controlDirectionKeep" type="button">Keep current controls</button>
@@ -1734,32 +1737,32 @@ function playWheelClick(statusElement){
 // Replay/verification records the *effective* wheel direction, not the physical key,
 // so reversing a control never changes the score or corrupts an optimal-route trace.
 const CONTROL_PREF_KEY='wirlox-control-direction-v1';
-const CONTROL_OFFER_KEY='wirlox-control-direction-offer-shown-v1';
+const CONTROL_NEVER_KEY='wirlox-control-direction-never-v1';
 const controlDirections=(()=>{
  try{
   const p=JSON.parse(localStorage.getItem(CONTROL_PREF_KEY)||'{}');
   return {horizontal:p.horizontal===true,vertical:p.vertical===true};
  }catch(_){return {horizontal:false,vertical:false};}
 })();
-let controlOfferSeen=false;
-try{controlOfferSeen=localStorage.getItem(CONTROL_OFFER_KEY)==='1';}catch(_){}
+let controlNeverAgain=false,controlPromptRunId=-1;
+try{controlNeverAgain=localStorage.getItem(CONTROL_NEVER_KEY)==='1';}catch(_){}
 let previousDirectionInput=null,controlPromptOpen=false;
 function saveControlDirections(){
  try{localStorage.setItem(CONTROL_PREF_KEY,JSON.stringify(controlDirections));}catch(_){}
 }
-function markControlOfferSeen(){
- controlOfferSeen=true;
- try{localStorage.setItem(CONTROL_OFFER_KEY,'1');}catch(_){}
+function markControlNeverAgain(){
+ controlNeverAgain=true;
+ try{localStorage.setItem(CONTROL_NEVER_KEY,'1');}catch(_){}
 }
 function appliedDirection(dir){
  if(controlDirections.horizontal&&(dir==='left'||dir==='right'))return dir==='left'?'right':'left';
  if(controlDirections.vertical&&(dir==='up'||dir==='down'))return dir==='up'?'down':'up';
  return dir;
 }
-function setDirectionPreference(axis,reversed){
+function setDirectionPreference(axis,reversed,fromPrompt=false){
  controlDirections[axis]=reversed;
  saveControlDirections();
- markControlOfferSeen();
+ if(!fromPrompt)markControlNeverAgain();
  $('controlReverseHorizontal').checked=controlDirections.horizontal;
  $('controlReverseVertical').checked=controlDirections.vertical;
  previousDirectionInput=null;
@@ -1770,6 +1773,7 @@ $('controlReverseHorizontal').addEventListener('change',e=>setDirectionPreferenc
 $('controlReverseVertical').addEventListener('change',e=>setDirectionPreference('vertical',e.target.checked));
 function closeDirectionPrompt(){
  if(!controlPromptOpen)return;
+ if($('controlDirectionNever').checked)markControlNeverAgain();
  controlPromptOpen=false;
  $('controlDirectionPrompt').hidden=true;
  previousDirectionInput=null;
@@ -1780,22 +1784,23 @@ function closeDirectionPrompt(){
  }
 }
 $('controlDirectionReverse').addEventListener('click',()=>{
- setDirectionPreference('horizontal',!controlDirections.horizontal);
+ setDirectionPreference('horizontal',!controlDirections.horizontal,true);
  closeDirectionPrompt();
 });
 $('controlDirectionKeep').addEventListener('click',closeDirectionPrompt);
 // A rapid, immediate opposite horizontal input is a hint, not a diagnosis.
-// Prompt once per device; never alter any settings without the player's choice.
+// Offer at most once per run unless the player opts out permanently.
 function maybeOfferControlDirection(physicalDirection){
  const now=performance.now(),isHorizontal=physicalDirection==='left'||physicalDirection==='right';
  const prev=previousDirectionInput;
  const correction=isHorizontal&&prev&&prev.dir!==physicalDirection&&
   (now-prev.at)<=1500&&prev.runId===runId&&prev.level===level;
  previousDirectionInput=isHorizontal?{dir:physicalDirection,at:now,runId,level}:null;
- if(!correction||controlOfferSeen||controlPromptOpen||!$('mobileOverlay').hidden||transition||finished)return;
- markControlOfferSeen(); // Once per device, even if the browser closes mid-dialog.
+ if(!correction||controlNeverAgain||controlPromptRunId===runId||controlPromptOpen||!$('mobileOverlay').hidden||transition||finished)return;
+ controlPromptRunId=runId;
  controlPromptOpen=true;
  freezeTime();runPaused=true;activeSince=0;saveUnfinishedRun();
+ $('controlDirectionNever').checked=false;
  $('controlDirectionPrompt').hidden=false;
  $('controlDirectionReverse').focus();
 }
