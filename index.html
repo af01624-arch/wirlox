@@ -1691,7 +1691,7 @@ function playWheelClick(statusElement){
  });
 }
 function move(dir){
-  if(dragAnimating&&!dragInternalStep)return;
+  if(dragGrab&&!dragInternalStep)return;
   if(!gameRunning||runPaused||!$('readyOverlay').hidden||transition||finished)return;
   switch(dir){
   case 'left':horizontal(-1);break;
@@ -1703,140 +1703,133 @@ function move(dir){
   moveTrace+=({left:'L',right:'R',up:'U',down:'D'})[dir];
   saveUnfinishedRun();playWheelClick();
 }
-// WIRLOX drag-to-slot prototype: test branch only.
-// Touch/mouse selection has no flicking, momentum, or uncounted turns.
-// Existing arrow keys/buttons and move()/moveTrace remain the only way wheels advance.
-let dragGrab=null,dragAnimating=false,dragInternalStep=false,dragSnap=null;
-const dragPauseMs=240;
+// Test branch only: physically turn the BLUE horizontal wheel with mouse or finger.
+// The wheel follows the gesture while held, clicks at each detent, and never coasts.
+// Turning back across a detent is another genuine (counted) move.
+// The amber vertical wheel and all four existing arrow controls remain unchanged.
+let dragGrab=null,dragInternalStep=false,dragPreview=null;
+const dragDetentPauseMs=115;
 function dragCanStart(){
  return gameRunning&&!runPaused&&$('readyOverlay').hidden&&!transition&&!finished&&
-        !dragAnimating&&$('solutionReplay').hidden;
+        $('solutionReplay').hidden;
 }
 function dragGeometry(){
  const w=width,h=height,wide=w/h>1.15;
  const R=Math.min(wide?269:242,w*.37,h*(wide?.35:.30));
- const V=Math.min(172,R*(wide?.71:.90),h*(wide?.26:.24));
  const cx=w*.5,cy=h*(wide?.49:.51)+4;
- const front=project(0,R*Math.sin(tilt),-R*Math.cos(tilt),cx,cy);
- const rear=project(0,-R*Math.sin(tilt),R*Math.cos(tilt),cx,cy);
- return {R,V,cx,cy,front,rear,scaleText:Math.min(1.1,Math.max(.72,R/230))};
+ return {R,cx,cy,scaleText:Math.min(1.1,Math.max(.72,R/230))};
 }
 function dragPointer(e){
  const r=canvas.getBoundingClientRect();
  return {x:(e.clientX-r.left)*width/r.width,y:(e.clientY-r.top)*height/r.height};
 }
-function dragPick(pos,g){
- // Pick the actual rendered letter, not an invisible sector of the wheel.
+function dragPickHorizontal(pos,g){
  let picked=null,best=Infinity;
- const hit=Math.max(29,34*g.scaleText);
+ const hit=Math.max(30,34*g.scaleText);
  for(let i=0;i<n();i++){
   const a=-Math.PI/2+i*hs()+horizontalPhase,z=g.R*Math.sin(a),x=g.R*Math.cos(a);
   const p=project(x,-z*Math.sin(tilt),z*Math.cos(tilt),g.cx,g.cy);
+  // Only visible blue letters can be grabbed; do not grab the amber centre.
+  if(i===cursor&&Math.hypot(p.x-g.cx,p.y-(g.cy+g.R*Math.sin(tilt)))<23*g.scaleText)continue;
   const distance=Math.hypot(pos.x-p.x,pos.y-p.y);
-  const score=distance-((i===(cursor+n()/2)%n())?5:0);
-  if(distance<hit&&score<best){best=score;picked={kind:'horizontal',index:i,letter:ABC[wheel[i]],source:p};}
- }
- const compact=matchMedia('(max-width:700px)').matches;
- const visibleStep=verticalStep*(compact?.64:1);
- const centerIndex=-verticalPhase/verticalStep;
- for(let absolute=Math.floor(centerIndex)-4;absolute<=Math.ceil(centerIndex)+4;absolute++){
-  const offset=absolute-centerIndex;
-  if(Math.abs(offset)>3.46)continue;
-  const a=-Math.PI/2+offset*visibleStep;
-  const p=project(0,g.V*Math.cos(a),g.V*Math.sin(a),g.cx,g.front.y);
-  const distance=Math.hypot(pos.x-p.x,pos.y-p.y);
-  // The central amber glyph is the front-letter display, so it wins a near tie.
-  const score=distance-(Math.abs(offset)<.5?8:0);
-  if(distance<hit&&score<best){best=score;picked={kind:'vertical',index:absolute,letter:ABC[mod(absolute,26)],source:p};}
+  if(distance<hit&&distance<best){best=distance;picked={index:i,letter:ABC[wheel[i]]};}
  }
  return picked;
 }
-function dragEnd(){
- if(dragGrab){try{canvas.releasePointerCapture(dragGrab.id);}catch(_){}}
- dragGrab=null;
+function dragAngle(pos,g){
+ return Math.atan2(-(pos.y-g.cy)/Math.sin(tilt),pos.x-g.cx);
 }
-function dragRunSteps(direction,count,slot){
- if(!count)return;
- dragAnimating=true;
- let done=0;
- const gameToken=runId;
- function step(){
-  if(runId!==gameToken||!gameRunning||runPaused||!$('readyOverlay').hidden||transition||finished){dragAnimating=false;dragSnap=null;return;}
-  dragInternalStep=true;
-  try{move(direction);}finally{dragInternalStep=false;}
-  done++;
-  dragSnap={slot,at:performance.now()};
-  if(done<count){setTimeout(step,dragPauseMs);}else{
-   setTimeout(()=>{dragAnimating=false;dragSnap=null;},dragPauseMs);
-  }
- }
- step();
+function dragFarEnough(pos,g){
+ return Math.hypot((pos.x-g.cx)/g.R,(pos.y-g.cy)/(g.R*Math.sin(tilt)))>.32;
+}
+function dragPreviewElement(){
+ if(dragPreview)return dragPreview;
+ dragPreview=document.createElement('div');
+ dragPreview.setAttribute('aria-hidden','true');
+ dragPreview.style.cssText='position:fixed;z-index:40;pointer-events:none;display:none;'+
+  'width:65px;height:69px;align-items:center;justify-content:center;'+
+  'border:2px solid rgba(142,219,255,.85);border-radius:16px;'+
+  'background:rgba(13,32,59,.96);box-shadow:0 8px 23px rgba(0,0,0,.50),0 0 12px rgba(82,181,252,.23);'+
+  'color:#a9e5ff;font:800 36px Arial,Helvetica,sans-serif;'+
+  'text-shadow:0 0 12px rgba(82,181,252,.62);transform:translateX(-50%);';
+ document.body.appendChild(dragPreview);
+ return dragPreview;
+}
+function dragShowPreview(e,d){
+ if(!d.touch)return;
+ const p=dragPreviewElement();
+ p.textContent=d.letter; p.style.display='flex';
+ p.style.left=Math.max(36,Math.min(innerWidth-36,e.clientX))+'px';
+ p.style.top=Math.max(7,e.clientY-87)+'px';
+}
+function dragEnd(){
+ const d=dragGrab;
+ dragGrab=null;
+ if(dragPreview)dragPreview.style.display='none';
+ if(d){try{canvas.releasePointerCapture(d.id);}catch(_){}}
 }
 canvas.addEventListener('pointerdown',e=>{
  if(!dragCanStart()||dragGrab||!e.isPrimary||(e.pointerType==='mouse'&&e.button!==0))return;
- if(Math.abs(targetHorizontalPhase-horizontalPhase)>.08||Math.abs(targetVerticalPhase-verticalPhase)>.08)return;
- const at=dragPointer(e),g=dragGeometry(),letter=dragPick(at,g);
- if(!letter)return;
+ if(Math.abs(targetHorizontalPhase-horizontalPhase)>.07||
+    Math.abs(targetVerticalPhase-verticalPhase)>.07)return;
+ const pos=dragPointer(e),g=dragGeometry(),picked=dragPickHorizontal(pos,g);
+ if(!picked||!dragFarEnough(pos,g))return;
  unlockClick();
- dragGrab={id:e.pointerId,...letter,point:at,start:at,geometry:g,moved:false};
- canvas.setPointerCapture(e.pointerId);e.preventDefault();
+ dragGrab={
+  id:e.pointerId,gameToken:runId,index:picked.index,letter:picked.letter,
+  touch:e.pointerType==='touch'&&matchMedia('(max-width:700px)').matches,
+  lastAngle:dragAngle(pos,g),angleSum:0,detent:0,startPhase:targetHorizontalPhase,
+  visualPhase:horizontalPhase,lockUntil:0
+ };
+ canvas.setPointerCapture(e.pointerId);
+ dragShowPreview(e,dragGrab);e.preventDefault();
 });
 canvas.addEventListener('pointermove',e=>{
- if(!dragGrab||dragGrab.id!==e.pointerId)return;
- dragGrab.point=dragPointer(e);
- if(Math.hypot(dragGrab.point.x-dragGrab.start.x,dragGrab.point.y-dragGrab.start.y)>16)
-  dragGrab.moved=true;
+ const d=dragGrab;
+ if(!d||d.id!==e.pointerId)return;
+ if(d.gameToken!==runId||!dragCanStart()){dragEnd();return;}
+ dragShowPreview(e,d);
+ const pos=dragPointer(e),g=dragGeometry();
+ if(!dragFarEnough(pos,g)){d.lastAngle=null;e.preventDefault();return;}
+ const angle=dragAngle(pos,g);
+ if(d.lastAngle!==null){
+  // Wrapped angular difference also supports reversing halfway through a turn.
+  const delta=Math.atan2(Math.sin(angle-d.lastAngle),Math.cos(angle-d.lastAngle));
+  // Crossing straight through the centre is not a physical wheel turn.
+  if(Math.abs(delta)<1.45)d.angleSum+=delta;
+ }
+ d.lastAngle=angle;
+ const travel=-d.angleSum/hs();
+ const now=performance.now();
+ if(now>=d.lockUntil){
+  let dir=null;
+  if(travel-d.detent>=.67)dir='right';
+  if(travel-d.detent<=-.67)dir='left';
+  if(dir){
+   dragInternalStep=true;
+   try{move(dir);}finally{dragInternalStep=false;}
+   d.detent+=(dir==='right'?1:-1);
+   d.lockUntil=now+dragDetentPauseMs;
+  }
+ }
+ // The letters travel WITH the finger. A short resistance at each detent
+ // prevents fast swipes from turning into a flick or uncounted free spin.
+ const ideal=d.startPhase+d.angleSum;
+ const resistance=hs()*.69;
+ d.visualPhase=Math.max(targetHorizontalPhase-resistance,
+                         Math.min(targetHorizontalPhase+resistance,ideal));
  e.preventDefault();
 });
 canvas.addEventListener('pointerup',e=>{
- const d=dragGrab;
- if(!d||d.id!==e.pointerId)return;
- const at=dragPointer(e),g=dragGeometry();
+ if(!dragGrab||dragGrab.id!==e.pointerId)return;
+ // Releasing only settles the partial turn to the last counted detent.
+ // It never queues more movement, even if the finger moved quickly.
  dragEnd();e.preventDefault();
- if(!d.moved||!dragCanStart())return;
- const frontDistance=Math.hypot(at.x-g.front.x,at.y-g.front.y);
- const rearDistance=Math.hypot(at.x-g.rear.x,at.y-g.rear.y);
- const radius=Math.max(51,57*g.scaleText);
- if(d.kind==='horizontal'){
-  if(Math.min(frontDistance,rearDistance)>radius)return;
-  const rear=rearDistance<frontDistance;
-  const selected=rear?(cursor+n()/2)%n():cursor;
-  const forward=mod(d.index-selected,n());
-  const steps=forward>n()/2?forward-n():forward;
-  if(steps)dragRunSteps(steps>0?'right':'left',Math.abs(steps),rear?'rear':'front');
- }else{
-  if(frontDistance>radius)return;
-  const steps=d.index-verticalRaw;
-  if(steps)dragRunSteps(steps>0?'down':'up',Math.abs(steps),'center');
- }
 });
 canvas.addEventListener('pointercancel',dragEnd);
-canvas.addEventListener('lostpointercapture',()=>{dragGrab=null;});
-function drawDragGuides(g){
- if(!dragGrab&&!dragSnap)return;
- ctx.save();
- const d=dragGrab;
- const slots=d?(d.kind==='horizontal'?[['FRONT',g.front],['REAR',g.rear]]:[['CENTER',g.front]]):
-                   [[dragSnap.slot==='rear'?'REAR':dragSnap.slot==='center'?'CENTER':'FRONT',dragSnap.slot==='rear'?g.rear:g.front]];
- for(const [label,p] of slots){
-  const near=d&&Math.hypot(d.point.x-p.x,d.point.y-p.y)<Math.max(51,57*g.scaleText);
-  const color=near?'rgba(156,255,202,.88)':'rgba(255,208,132,.64)';
-  ctx.beginPath();ctx.arc(p.x,p.y,42*g.scaleText,0,TWO);ctx.lineWidth=near?3:2;
-  ctx.strokeStyle=color;ctx.stroke();
-  ctx.font='bold 10px Arial, sans-serif';ctx.textAlign='center';ctx.fillStyle=color;
-  ctx.fillText(label,p.x,p.y+53*g.scaleText);
- }
- if(d){
-  ctx.beginPath();ctx.moveTo(d.source.x,d.source.y);ctx.lineTo(d.point.x,d.point.y);
-  ctx.setLineDash([4,7]);ctx.lineWidth=2;ctx.strokeStyle='rgba(138,217,255,.62)';ctx.stroke();ctx.setLineDash([]);
-  ctx.beginPath();ctx.arc(d.point.x,d.point.y,17,0,TWO);
-  ctx.fillStyle='rgba(12,29,54,.85)';ctx.fill();
-  ctx.strokeStyle='rgba(142,219,255,.9)';ctx.lineWidth=2;ctx.stroke();
-  ctx.fillStyle='#e4f4ff';ctx.font='bold 16px Arial, sans-serif';ctx.textAlign='center';
-  ctx.textBaseline='middle';ctx.fillText(d.letter,d.point.x,d.point.y);
- }
- ctx.restore();
-}
+canvas.addEventListener('lostpointercapture',dragEnd);
+window.addEventListener('blur',dragEnd);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)dragEnd();});
 window.addEventListener('keydown',e=>{
  const dirs={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down'};
  if(dirs[e.key]){e.preventDefault();move(dirs[e.key]);}
@@ -1978,7 +1971,9 @@ function render(t){
  refreshClock();
  const dt=Math.min(55,t-lastFrame);lastFrame=t;
  const easing=1-Math.exp(-dt/82);
- horizontalPhase+=(targetHorizontalPhase-horizontalPhase)*easing;
+ if(dragGrab&&dragGrab.gameToken!==runId)dragEnd();
+ if(dragGrab)horizontalPhase=dragGrab.visualPhase;
+ else horizontalPhase+=(targetHorizontalPhase-horizontalPhase)*easing;
  verticalPhase+=(targetVerticalPhase-verticalPhase)*easing;
  if(Math.abs(targetHorizontalPhase-horizontalPhase)<.00006)horizontalPhase=targetHorizontalPhase;
  if(Math.abs(targetVerticalPhase-verticalPhase)<.00006)verticalPhase=targetVerticalPhase;
@@ -2058,7 +2053,6 @@ function render(t){
    }
  }
  circle(cx,crossingY,34*scaleText,null,'rgba(255,190,115,.55)');
- drawDragGuides(dragGeometry());
  requestAnimationFrame(render);
 }
 // Expose read-only game state for local automated browser tests only.
