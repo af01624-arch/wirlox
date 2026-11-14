@@ -1709,6 +1709,10 @@ function move(dir){
 // The amber vertical wheel and all four existing arrow controls remain unchanged.
 let dragGrab=null,dragInternalStep=false,dragPreview=null;
 const dragDetentPauseMs=115;
+// Hide the existing directional buttons only while the physical drag is active.
+const dragArrowStyle=document.createElement('style');
+dragArrowStyle.textContent='body.wirlox-wheel-dragging [data-dir]{visibility:hidden!important}';
+document.head.appendChild(dragArrowStyle);
 function dragCanStart(){
  return gameRunning&&!runPaused&&$('readyOverlay').hidden&&!transition&&!finished&&
         $('solutionReplay').hidden;
@@ -1765,6 +1769,7 @@ function dragShowPreview(e,d){
 function dragEnd(){
  const d=dragGrab;
  dragGrab=null;
+ document.body.classList.remove('wirlox-wheel-dragging');
  if(dragPreview)dragPreview.style.display='none';
  if(d){try{canvas.releasePointerCapture(d.id);}catch(_){}}
 }
@@ -1782,6 +1787,7 @@ canvas.addEventListener('pointerdown',e=>{
   visualPhase:horizontalPhase,lockUntil:0
  };
  canvas.setPointerCapture(e.pointerId);
+ document.body.classList.add('wirlox-wheel-dragging');
  dragShowPreview(e,dragGrab);e.preventDefault();
 });
 canvas.addEventListener('pointermove',e=>{
@@ -2022,8 +2028,10 @@ function render(t){
   if(item.pos===cursor && Math.hypot(item.x-cx,item.y-crossingY)<22*scaleText)continue;
   // On narrow phones, render the rear selected letter last so the vertical
   // alphabet can never visually cover it (including during wheel animation).
-  if(mobileCompact && item.pos===opposite)continue;
-  if(item.pos===opposite)circle(item.x,item.y,23*scaleText,null,'rgba(255,218,143,.34)');
+  if(mobileCompact && !dragGrab && item.pos===opposite)continue;
+  // The rear selection ring must not jump to the newly selected index before
+  // the gesture's visual rotation reaches its next detent.
+  if(item.pos===opposite && !dragGrab)circle(item.x,item.y,23*scaleText,null,'rgba(255,218,143,.34)');
   drawLetter(item,.27);
  }
  // The selected vertical glyph matches the rendered size of the two adjacent
@@ -2048,8 +2056,18 @@ function render(t){
    // priority over the alphabet without changing its position or wheel rules.
    const rear=horizontal.find(item=>item.pos===opposite);
    if(rear){
-     circle(rear.x,rear.y,23*scaleText,null,'rgba(255,218,143,.5)');
-     drawLetter({...rear,opacity:1.65},.27);
+     if(dragGrab){
+       // While dragging, hold the rear TARGET at a fixed, lifted position:
+       // the physical wheel can rotate beneath it without a one-step jump back.
+       // This remains in front of the vertical alphabet for the whole gesture.
+       const rearSlot=project(0,-R*Math.sin(tilt),R*Math.cos(tilt),cx,cy);
+       const liftY=rearSlot.y-25*scaleText;
+       circle(rearSlot.x,liftY,24*scaleText,'rgba(9,23,45,.96)','rgba(255,218,143,.68)');
+       drawLetter({...rear,x:rearSlot.x,y:liftY,scale:1,opacity:2.8},.27);
+     }else{
+       circle(rear.x,rear.y,23*scaleText,null,'rgba(255,218,143,.5)');
+       drawLetter({...rear,opacity:1.65},.27);
+     }
    }
  }
  circle(cx,crossingY,34*scaleText,null,'rgba(255,190,115,.55)');
