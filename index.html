@@ -892,6 +892,27 @@ canvas#wheel{transform:translateY(65px)}
 @media (orientation:landscape) {
   html.wirloxPhone #portraitOnlyNotice{display:flex}
 }
+
+/* Control-direction choice test: only the existing menu and optional one-time dialog. */
+#controlDirectionSettings{margin-top:13px;border:1px solid rgba(164,203,250,.26);border-radius:12px;background:rgba(18,33,61,.52);padding:0 12px;color:#c4d9eb}
+#controlDirectionSettings summary{list-style:none;cursor:pointer;padding:12px 3px;font-size:12px;font-weight:750;letter-spacing:.04em;color:#d3e7f6}
+#controlDirectionSettings summary::-webkit-details-marker{display:none}
+#controlDirectionSettings summary::before{content:"⚙";margin-right:8px;color:#a9d7f7}
+#controlDirectionSettings .controlSettingRows{display:grid;gap:12px;padding:0 2px 13px}
+#controlDirectionSettings .controlSettingRows label{display:flex;align-items:center;justify-content:space-between;gap:15px;font-size:13px;line-height:1.4}
+#controlDirectionSettings input{appearance:auto;width:19px;height:19px;accent-color:#83d3ff;flex-shrink:0}
+#controlDirectionSettings .controlSettingsNote{font-size:11px;line-height:1.45;color:#a8c1db;margin:0}
+#controlDirectionPrompt[hidden]{display:none!important}
+#controlDirectionPrompt{position:fixed;inset:0;z-index:35;display:flex;align-items:center;justify-content:center;padding:17px;background:rgba(4,10,25,.81)}
+#controlDirectionPrompt .controlPromptCard{width:min(440px,100%);max-height:calc(100dvh - 34px);overflow:auto;padding:25px 23px 22px;border:1px solid rgba(160,202,244,.37);border-radius:19px;background:linear-gradient(155deg,#1b304d 0%,#101e35 65%,#0a1429 100%);box-shadow:0 20px 70px #000b;color:#ecf5fc;text-align:center}
+#controlDirectionPrompt h2{margin:0 0 15px;color:#f5f8ff;font-size:23px;line-height:1.2}
+#controlDirectionPrompt p{font-size:14px;line-height:1.55;margin:0 0 15px}
+#controlDirectionPrompt .controlPromptNote{font-size:12px;color:#adcae0;margin:0 0 21px}
+#controlDirectionPrompt .controlPromptActions{display:flex;flex-direction:column;gap:9px}
+#controlDirectionPrompt .controlPromptActions button{width:100%;min-height:46px;font-size:13px;font-weight:700}
+#controlDirectionReverse{background:#c4e4f5;color:#10223b;border-color:#c8e8fb}
+#controlDirectionKeep{background:rgba(24,42,70,.7);color:#cfdfed;border-color:rgba(144,190,229,.38)}
+@media(max-width:700px){#controlDirectionPrompt .controlPromptCard{padding:22px 18px}#controlDirectionPrompt h2{font-size:21px}}
 </style>
 </head>
 <body>
@@ -933,6 +954,25 @@ canvas#wheel{transform:translateY(65px)}
   <div class="mobileMenuCard">
     <div class="mobileMenuHeader"><strong>WIRLOX · MENU</strong><button id="mobileMenuClose" type="button">Close ✕</button></div>
     <div id="mobileMenuSlot"></div>
+    <details id="controlDirectionSettings">
+      <summary>Settings · Control direction</summary>
+      <div class="controlSettingRows">
+        <label for="controlReverseHorizontal"><span>Reverse left/right arrows</span><input id="controlReverseHorizontal" type="checkbox"></label>
+        <label for="controlReverseVertical"><span>Reverse up/down arrows</span><input id="controlReverseVertical" type="checkbox"></label>
+        <p class="controlSettingsNote">Applies to arrow keys and on-screen buttons. Changes are saved on this device.</p>
+      </div>
+    </details>
+  </div>
+</div>
+<div id="controlDirectionPrompt" role="dialog" aria-modal="true" aria-labelledby="controlDirectionTitle" hidden>
+  <div class="controlPromptCard">
+    <h2 id="controlDirectionTitle">Controls feel backwards?</h2>
+    <p>Would you prefer the left and right arrows to work the opposite way?</p>
+    <p class="controlPromptNote">You can change this anytime in Settings, along with the up/down controls.</p>
+    <div class="controlPromptActions">
+      <button id="controlDirectionReverse" type="button">Reverse left/right</button>
+      <button id="controlDirectionKeep" type="button">Keep current controls</button>
+    </div>
   </div>
 </div>
 <div class="help"><span class="legendHorizontal">●</span> Horizontal alphabet &nbsp; <span class="legendVertical">●</span> Vertical alphabet<br>14 letters · three familiar words.<br>← → position &nbsp; ↑ ↓ alter linked letters.<br>Every arrow press costs one move. Stopwatch is secondary.</div>
@@ -1690,17 +1730,89 @@ function playWheelClick(statusElement){
   if(statusElement)statusElement.textContent='Audio blocked — check Silent Mode and volume';
  });
 }
+// Test-only input-direction preference. The current controls remain the default.
+// Replay/verification records the *effective* wheel direction, not the physical key,
+// so reversing a control never changes the score or corrupts an optimal-route trace.
+const CONTROL_PREF_KEY='wirlox-control-direction-v1';
+const CONTROL_OFFER_KEY='wirlox-control-direction-offer-shown-v1';
+const controlDirections=(()=>{
+ try{
+  const p=JSON.parse(localStorage.getItem(CONTROL_PREF_KEY)||'{}');
+  return {horizontal:p.horizontal===true,vertical:p.vertical===true};
+ }catch(_){return {horizontal:false,vertical:false};}
+})();
+let controlOfferSeen=false;
+try{controlOfferSeen=localStorage.getItem(CONTROL_OFFER_KEY)==='1';}catch(_){}
+let previousDirectionInput=null,controlPromptOpen=false;
+function saveControlDirections(){
+ try{localStorage.setItem(CONTROL_PREF_KEY,JSON.stringify(controlDirections));}catch(_){}
+}
+function markControlOfferSeen(){
+ controlOfferSeen=true;
+ try{localStorage.setItem(CONTROL_OFFER_KEY,'1');}catch(_){}
+}
+function appliedDirection(dir){
+ if(controlDirections.horizontal&&(dir==='left'||dir==='right'))return dir==='left'?'right':'left';
+ if(controlDirections.vertical&&(dir==='up'||dir==='down'))return dir==='up'?'down':'up';
+ return dir;
+}
+function setDirectionPreference(axis,reversed){
+ controlDirections[axis]=reversed;
+ saveControlDirections();
+ markControlOfferSeen();
+ $('controlReverseHorizontal').checked=controlDirections.horizontal;
+ $('controlReverseVertical').checked=controlDirections.vertical;
+ previousDirectionInput=null;
+}
+$('controlReverseHorizontal').checked=controlDirections.horizontal;
+$('controlReverseVertical').checked=controlDirections.vertical;
+$('controlReverseHorizontal').addEventListener('change',e=>setDirectionPreference('horizontal',e.target.checked));
+$('controlReverseVertical').addEventListener('change',e=>setDirectionPreference('vertical',e.target.checked));
+function closeDirectionPrompt(){
+ if(!controlPromptOpen)return;
+ controlPromptOpen=false;
+ $('controlDirectionPrompt').hidden=true;
+ previousDirectionInput=null;
+ if(gameRunning&&runPaused&&!transition&&!finished){
+  runPaused=false;
+  resumeTime();
+  saveUnfinishedRun();
+ }
+}
+$('controlDirectionReverse').addEventListener('click',()=>{
+ setDirectionPreference('horizontal',!controlDirections.horizontal);
+ closeDirectionPrompt();
+});
+$('controlDirectionKeep').addEventListener('click',closeDirectionPrompt);
+// A rapid, immediate opposite horizontal input is a hint, not a diagnosis.
+// Prompt once per device; never alter any settings without the player's choice.
+function maybeOfferControlDirection(physicalDirection){
+ const now=performance.now(),isHorizontal=physicalDirection==='left'||physicalDirection==='right';
+ const prev=previousDirectionInput;
+ const correction=isHorizontal&&prev&&prev.dir!==physicalDirection&&
+  (now-prev.at)<=1500&&prev.runId===runId&&prev.level===level;
+ previousDirectionInput=isHorizontal?{dir:physicalDirection,at:now,runId,level}:null;
+ if(!correction||controlOfferSeen||controlPromptOpen||!$('mobileOverlay').hidden||transition||finished)return;
+ markControlOfferSeen(); // Once per device, even if the browser closes mid-dialog.
+ controlPromptOpen=true;
+ freezeTime();runPaused=true;activeSince=0;saveUnfinishedRun();
+ $('controlDirectionPrompt').hidden=false;
+ $('controlDirectionReverse').focus();
+}
+
 function move(dir){
   if(!gameRunning||runPaused||!$('readyOverlay').hidden||transition||finished)return;
-  switch(dir){
+  const effective=appliedDirection(dir);
+  switch(effective){
   case 'left':horizontal(-1);break;
   case 'right':horizontal(1);break;
   case 'up':vertical(-1);break;
   case 'down':vertical(1);break;
   default:return;
  }
-  moveTrace+=({left:'L',right:'R',up:'U',down:'D'})[dir];
+  moveTrace+=({left:'L',right:'R',up:'U',down:'D'})[effective];
   saveUnfinishedRun();playWheelClick();
+  maybeOfferControlDirection(dir);
 }
 // Wheel dragging is intentionally disabled. The wheel is visual-only.
 window.addEventListener('keydown',e=>{
