@@ -1473,18 +1473,18 @@ function saveUnfinishedRun(){
  const data={v:1,number:puzzleIndex+1,name:p.name,start:p.start,words:p.words.join('/'),
   wheel:wheel.slice(),cursor,verticalRaw,targetHorizontalPhase,level,moves,
   breakdown:breakdown.slice(),elapsedMs:Math.max(0,Math.floor(timeMs())),
-  moveTrace,transition};
+  moveTrace,transition,lastActiveAt:Date.now()};
  try{localStorage.setItem(unfinishedKey(p),JSON.stringify(data));}catch(e){}
 }
 function pauseUnfinishedRun(){
  if(!gameRunning||finished)return;
  freezeTime();runPaused=true;activeSince=0;saveUnfinishedRun();
 }
-function restoreUnfinishedRun(){
- const p=PUZZLES[puzzleIndex];if(!p)return false;
+function readUnfinishedSnapshot(p,index){
+ if(!p)return null;
  let data;
- try{data=JSON.parse(localStorage.getItem(unfinishedKey(p))||'null');}catch(e){return false;}
- if(!data||data.v!==1||data.number!==puzzleIndex+1||data.name!==p.name||
+ try{data=JSON.parse(localStorage.getItem(unfinishedKey(p))||'null');}catch(e){return null;}
+ if(!data||data.v!==1||data.number!==index+1||data.name!==p.name||
     data.start!==p.start||data.words!==p.words.join('/')||
     !Array.isArray(data.wheel)||data.wheel.length!==p.start.length||
     !data.wheel.every(x=>Number.isInteger(x)&&x>=0&&x<26)||
@@ -1499,7 +1499,29 @@ function restoreUnfinishedRun(){
     !data.breakdown.every(x=>Number.isInteger(x)&&x>=0)||
     data.breakdown.reduce((a,b)=>a+b,0)!==data.moves||
     !Number.isFinite(data.elapsedMs)||data.elapsedMs<0||data.elapsedMs>86400000||
-    typeof data.transition!=='boolean')return false;
+    typeof data.transition!=='boolean')return null;
+ return data;
+}
+function mostRecentUnfinishedIndex(){
+ let latestIndex=null,latestTime=0,legacyDailyIndex=null,legacyArchiveIndex=null;
+ for(const i of loadedPuzzleIndexes()){
+  const data=readUnfinishedSnapshot(PUZZLES[i],i);
+  if(!data)continue;
+  // Earlier saves have no timestamp: prefer the latest released Daily as a fallback.
+  if(Number.isSafeInteger(data.lastActiveAt)&&data.lastActiveAt>0){
+   if(data.lastActiveAt>latestTime){latestTime=data.lastActiveAt;latestIndex=i;}
+  }else if(i>=28){
+   if(legacyDailyIndex===null||i>legacyDailyIndex)legacyDailyIndex=i;
+  }else if(legacyArchiveIndex===null){
+   legacyArchiveIndex=i;
+  }
+ }
+ return latestIndex??legacyDailyIndex??legacyArchiveIndex;
+}
+function restoreUnfinishedRun(){
+ const p=PUZZLES[puzzleIndex];if(!p)return false;
+ const data=readUnfinishedSnapshot(p,puzzleIndex);
+ if(!data)return false;
  wheel=data.wheel.slice();cursor=data.cursor;verticalRaw=data.verticalRaw;
  targetHorizontalPhase=data.targetHorizontalPhase;horizontalPhase=targetHorizontalPhase;
  targetVerticalPhase=-verticalRaw*verticalStep;verticalPhase=targetVerticalPhase;
@@ -2162,9 +2184,19 @@ async function loadPrivateFactoryPuzzles(){
      {weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'UTC'})
      .format(new Date(state.date+'T12:00:00Z'));
     redrawPuzzleSelector();
+    // Fresh visits resume the most recently active unfinished puzzle.
+    // Do not override a puzzle deliberately selected while the API was loading.
+    const recentUnfinished=trigger==='initial'&&!userChosePuzzle?mostRecentUnfinishedIndex():null;
     const safelyAtHome=!gameRunning&&!finished&&
      !$('readyOverlay').hidden&&(!$('quickView').hidden);
-    if(newDaily){
+    if(recentUnfinished!==null){
+     pendingDailyNumber=null;
+     if(recentUnfinished!==puzzleIndex){
+      puzzleIndex=recentUnfinished;
+      $('puzzle').value=String(puzzleIndex);
+      reset(true);
+     }
+    }else if(newDaily){
      if(trigger==='initial'?(!userChosePuzzle&&safelyAtHome):safelyAtHome){
       puzzleIndex=todayNumber-1;
       pendingDailyNumber=null;userChosePuzzle=false;
