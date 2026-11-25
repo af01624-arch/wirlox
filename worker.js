@@ -486,29 +486,76 @@ async function scheduleMutation(request,db,kind){
   return json({ok:true,slot,puzzleNumber:number,swappedWith:other?.slot??null});
 }
 
-// Studio stage 68: a dedicated credential, read-only schedule access.
-// No Factory cookie reuse, no public access, and no mutation routes.
-async function studioScheduleRead(request,env){
-  if(request.method!=='GET')return json({error:'Method not allowed'},405);
+// Studio reserve upload and schedule extension: isolated preview only.
+async function studioAPI(request,env,action){
+  if(request.method!==(action==='schedule'?'GET':'POST'))return json({error:'Method not allowed'},405);
   const secret=env.STUDIO_ACCESS_KEY;
-  if(typeof secret!=='string'||secret.length<32||secret.length>256)
-    return json({error:'Studio access not configured'},503);
+  if(typeof secret!=='string'||secret.length<32||secret.length>256)return json({error:'Studio access not configured'},503);
   const auth=request.headers.get('Authorization')||'';
-  if(!auth.startsWith('Bearer ')||auth.length>263)
-    return json({error:'Studio access required'},401);
-  const candidate=auth.slice(7);
-  if(candidate.length<32)return json({error:'Studio access required'},401);
-  if(!equalHex(await digest(candidate),await digest(secret)))
-    return json({error:'Studio access required'},401);
+  if(!auth.startsWith('Bearer ')||auth.length>263||auth.length<39||
+      !equalHex(await digest(auth.slice(7)),await digest(secret)))return json({error:'Studio access required'},401);
   if(!env.DB)return json({error:'D1 binding not configured'},503);
-  const data=await scheduleAdmin(env.DB);
-  const slots=data.slots.map(s=>{
+  const db=env.DB;
+  const preview=new URL(request.url).hostname==='studio-publishing-readonly-test-wirlox.af01624.workers.dev';
+  if(action==='schedule'){
+    const data=await scheduleAdmin(db);
+    const slots=data.slots.map(s=>{
+      const date=data.dailyStart?new Date(data.dailyStart+'T00:00:00Z'):null;
+      if(date)date.setUTCDate(date.getUTCDate()+s.slot-FIRST_DAILY);
+      return {...s,releaseDate:date?date.toISOString().slice(0,10):null};
+    });
+    return json({...data,slots,revision:await digest(JSON.stringify({dailyStart:data.dailyStart,slots:data.slots})),writesEnabled:preview});
+  }
+  if(!preview)return json({error:'Production publishing is disabled'},403);
+  if(request.headers.get('content-type')?.split(';')[0].trim()!=='application/json')return json({error:'JSON required'},415);
+  let p;try{const raw=await request.text();if(raw.length>8192)return json({error:'Too large'},413);p=JSON.parse(raw);}catch{return json({error:'Invalid JSON'},400);}
+  if(action==='upload'){
+    if(p?.status!=='approved'||p.verifiedOptimum!==true||
+      typeof p.start!=='string'||! /^[A-Z]{14}$/.test(p.start)||
+      !Array.isArray(p.words)||p.words.length!==3||!p.words.every(w=>typeof w==='string'&&/^[A-Z]{5}$/.test(w))||
+      typeof p.optimalRoute!=='string'||! /^[LRUD]{1,700}$/.test(p.optimalRoute)||
+      !Number.isInteger(p.optimum)||p.optimum!==p.optimalRoute.length||
+      typeof p.mood!=='string'||p.mood.length>120||/[\x00-\x1f]/.test(p.mood))
+      return json({error:'Approved puzzle with a proven optimum route required'},422);
+    const row={starting_wheel:p.start,word1:p.words[0],word2:p.words[1],word3:p.words[2],optimum:p.optimum};
+    if(!validateTrace(row,p.optimalRoute))return json({error:'Optimal route failed server replay'},422);
+    const match=await db.prepare('SELECT number FROM puzzles WHERE starting_wheel=? AND word1=? AND word2=? AND word3=?').bind(p.start,...p.words).first();
+    if(match)return json({error:'Puzzle already exists as source #'+match.number},409);
+    const last=await db.prepare('SELECT MAX(number) AS n FROM puzzles').first();
+    const n=Math.max(28,last?.n??28)+1;
+    if(n>MAX_PUZZLE_NUMBER)return json({error:'Puzzle number limit reached'},409);
+    const key='B'+String(Math.ceil(n/7)).padStart(2,'0')+'-'+n;
+    try{
+      const result=await db.batch([
+        db.prepare("INSERT INTO puzzles (number,puzzle_key,mood,starting_wheel,word1,word2,word3,optimum,excellent,good,average,publication) SELECT ?,?,?,?,?,?,?,?,?,?,?,'daily' WHERE NOT EXISTS (SELECT 1 FROM puzzles WHERE starting_wheel=? AND word1=? AND word2=? AND word3=?)")
+          .bind(n,key,p.mood||'Unrated',p.start,...p.words,p.optimum,p.optimum+3,p.optimum+8,p.optimum+16,p.start,...p.words),
+        db.prepare("INSERT INTO solution_routes(puzzle_number,route) SELECT number,? FROM puzzles WHERE number=? AND puzzle_key=? AND starting_wheel=? AND word1=? AND word2=? AND word3=?")
+          .bind(p.optimalRoute,n,key,p.start,...p.words)
+      ]);
+      if(result.some(r=>r.meta?.changes!==1))return json({error:'Duplicate or concurrent upload; refresh before retrying'},409);
+    }catch{return json({error:'Upload rejected; refresh before retrying'},409);}
+    return json({ok:true,number:n,puzzleKey:key,scheduled:false});
+  }
+  if(action==='append'){
+    const n=p?.number;
+    if(!Number.isInteger(n)||n<29||n>MAX_PUZZLE_NUMBER)return json({error:'Invalid reserve'},422);
+    const data=await scheduleAdmin(db);
+    const slot=(data.slots.at(-1)?.slot??28)+1;
+    if(slot>MAX_PUZZLE_NUMBER||!data.reserves.some(r=>r.number===n))return json({error:'Not an unused reserve or schedule limit reached'},409);
     const date=data.dailyStart?new Date(data.dailyStart+'T00:00:00Z'):null;
-    if(date)date.setUTCDate(date.getUTCDate()+s.slot-FIRST_DAILY);
-    return {...s,releaseDate:date?date.toISOString().slice(0,10):null};
-  });
-  const revision=await digest(JSON.stringify({dailyStart:data.dailyStart,slots:data.slots}));
-  return json({...data,slots,revision,writesEnabled:false});
+    if(date)date.setUTCDate(date.getUTCDate()+slot-FIRST_DAILY);
+    const releaseDate=date?date.toISOString().slice(0,10):null;
+    if(!releaseDate)return json({error:'Daily launch date is not set'},409);
+    // Preview dates may already be in the past. Production remains disabled.
+    const route=await db.prepare('SELECT p.*,r.route FROM puzzles p JOIN solution_routes r ON r.puzzle_number=p.number WHERE p.number=? AND p.publication=?').bind(n,'daily').first();
+    if(!route||typeof route.route!=='string'||route.route.length!==route.optimum||!validateTrace(route,route.route))return json({error:'Reserve has no valid route'},422);
+    try{
+      const result=await db.prepare("INSERT INTO daily_schedule(slot_number,puzzle_number) SELECT ?,? WHERE (SELECT COALESCE(MAX(slot_number),28) FROM daily_schedule)=? AND NOT EXISTS(SELECT 1 FROM daily_schedule WHERE puzzle_number=?)").bind(slot,n,slot-1,n).run();
+      if(result.meta?.changes!==1)return json({error:'Schedule changed; refresh before retrying'},409);
+    }catch{return json({error:'Schedule changed; refresh before retrying'},409);}
+    return json({ok:true,slot,puzzleNumber:n,releaseDate});
+  }
+  return json({error:'Not found'},404);
 }
 
 export default {
@@ -529,7 +576,9 @@ export default {
     }
     if(!url.pathname.startsWith('/api/'))return env.ASSETS.fetch(request);
     try{
-      if(url.pathname==='/api/studio/schedule')return await studioScheduleRead(request,env);
+      if(url.pathname==='/api/studio/schedule')return await studioAPI(request,env,'schedule');
+      if(url.pathname==='/api/studio/upload')return await studioAPI(request,env,'upload');
+      if(url.pathname==='/api/studio/append')return await studioAPI(request,env,'append');
       if(url.pathname==='/api/factory/login'&&request.method==='POST')return loginFactory(request,env);
       if(url.pathname.startsWith('/api/factory/')){
         if(!await hasFactorySession(request,env))return json({error:'Private access required'},401);
