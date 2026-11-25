@@ -486,6 +486,31 @@ async function scheduleMutation(request,db,kind){
   return json({ok:true,slot,puzzleNumber:number,swappedWith:other?.slot??null});
 }
 
+// Studio stage 68: a dedicated credential, read-only schedule access.
+// No Factory cookie reuse, no public access, and no mutation routes.
+async function studioScheduleRead(request,env){
+  if(request.method!=='GET')return json({error:'Method not allowed'},405);
+  const secret=env.STUDIO_ACCESS_KEY;
+  if(typeof secret!=='string'||secret.length<32||secret.length>256)
+    return json({error:'Studio access not configured'},503);
+  const auth=request.headers.get('Authorization')||'';
+  if(!auth.startsWith('Bearer ')||auth.length>263)
+    return json({error:'Studio access required'},401);
+  const candidate=auth.slice(7);
+  if(candidate.length<32)return json({error:'Studio access required'},401);
+  if(!equalHex(await digest(candidate),await digest(secret)))
+    return json({error:'Studio access required'},401);
+  if(!env.DB)return json({error:'D1 binding not configured'},503);
+  const data=await scheduleAdmin(env.DB);
+  const slots=data.slots.map(s=>{
+    const date=data.dailyStart?new Date(data.dailyStart+'T00:00:00Z'):null;
+    if(date)date.setUTCDate(date.getUTCDate()+s.slot-FIRST_DAILY);
+    return {...s,releaseDate:date?date.toISOString().slice(0,10):null};
+  });
+  const revision=await digest(JSON.stringify({dailyStart:data.dailyStart,slots:data.slots}));
+  return json({...data,slots,revision,writesEnabled:false});
+}
+
 export default {
   async fetch(request,env){
     const url=new URL(request.url);
@@ -504,6 +529,7 @@ export default {
     }
     if(!url.pathname.startsWith('/api/'))return env.ASSETS.fetch(request);
     try{
+      if(url.pathname==='/api/studio/schedule')return await studioScheduleRead(request,env);
       if(url.pathname==='/api/factory/login'&&request.method==='POST')return loginFactory(request,env);
       if(url.pathname.startsWith('/api/factory/')){
         if(!await hasFactorySession(request,env))return json({error:'Private access required'},401);
