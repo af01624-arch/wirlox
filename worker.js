@@ -583,7 +583,17 @@ async function studioAPI(request,env,action){
       if(date)date.setUTCDate(date.getUTCDate()+s.slot-FIRST_DAILY);
       return {...s,releaseDate:date?date.toISOString().slice(0,10):null};
     });
-    return json({...data,slots,revision:await digest(JSON.stringify({dailyStart:data.dailyStart,slots:data.slots})),writesEnabled,studioEnvironment});
+    // Authenticated Studio only: exact fingerprints let the local library hide
+    // uploaded candidates without confusing distinct starting arrangements.
+    // Do not return private starting wheels in the schedule response.
+    const uploadedIdentities=[];let after=0;
+    while(true){
+      const rows=(await db.prepare("SELECT number,starting_wheel,word1,word2,word3 FROM puzzles WHERE number>? ORDER BY number LIMIT 200").bind(after).all()).results;
+      if(!rows.length)break;
+      uploadedIdentities.push(...await Promise.all(rows.map(p=>digest(JSON.stringify([p.starting_wheel,p.word1,p.word2,p.word3])))));
+      after=rows[rows.length-1].number;
+    }
+    return json({...data,slots,uploadedIdentities,revision:await digest(JSON.stringify({dailyStart:data.dailyStart,slots:data.slots})),writesEnabled,studioEnvironment});
   }
   if(!writesEnabled)return json({error:'Production publishing is disabled'},403);
   if(request.headers.get('content-type')?.split(';')[0].trim()!=='application/json')return json({error:'JSON required'},415);
