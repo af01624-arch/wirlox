@@ -490,28 +490,17 @@ async function scheduleMutation(request,db,kind){
 async function studioAPI(request,env,action){
   if(request.method!==(action==='schedule'?'GET':'POST'))return json({error:'Method not allowed'},405);
   const preview=new URL(request.url).hostname==='studio-publishing-readonly-test-wirlox.af01624.workers.dev';
-  // The owner already has a Factory password. Reuse the existing authentication
-  // service rather than require another secret. Never send it to an arbitrary URL.
+  // Authenticate directly against a secret configured on this preview Worker.
+  // Never forward credentials to another Worker; never enable this route on production.
   if(!preview)return json({error:'Production Studio access is disabled'},403);
   const auth=request.headers.get('Authorization')||'';
   if(!auth.startsWith('Factory ')||auth.length>1400)return json({error:'Enter your existing Factory password'},401);
   let password;
   try{password=new TextDecoder('utf-8',{fatal:true}).decode(Uint8Array.from(atob(auth.slice(8)),c=>c.charCodeAt(0)));}catch{return json({error:'Invalid Factory password'},401);}
   if(password.length<1||password.length>256)return json({error:'Invalid Factory password'},401);
-  // Validate against the existing live login only: no puzzle or schedule writes
-  // are sent to production. Discard the returned session cookie.
-  let check;
-  try{
-    const result=await fetch('https://wirlox.com/api/factory/login',{
-      method:'POST',redirect:'error',
-      headers:{'Content-Type':'application/json','Origin':'https://wirlox.com'},
-      body:JSON.stringify({key:password})
-    });
-    if(result.status===401)return json({error:'Factory password not recognised'},401);
-    if(!result.ok)return json({error:'Factory sign-in service unavailable'},503);
-    check=await result.json();
-  }catch{return json({error:'Factory sign-in service unavailable'},503);}
-  if(check?.ok!==true)return json({error:'Factory sign-in service unavailable'},503);
+  if(!strongFactoryKey(env))return json({error:'Preview Factory password is not configured'},503);
+  const [candidate,expected]=await Promise.all([digest(password),digest(env.FACTORY_ACCESS_KEY)]);
+  if(!equalHex(candidate,expected))return json({error:'Factory password not recognised'},401);
   if(!env.DB)return json({error:'D1 binding not configured'},503);
   const db=env.DB;
   if(action==='schedule'){
