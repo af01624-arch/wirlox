@@ -486,19 +486,92 @@ async function scheduleMutation(request,db,kind){
   return json({ok:true,slot,puzzleNumber:number,swappedWith:other?.slot??null});
 }
 
-// Studio reserve upload and schedule extension: isolated preview only.
+// Independent lower-bound proof for Studio only. No puzzle data is embedded.
+// For each possible placement of each of the three words, constrain five of
+// the seven linked pairs at that word's completion. Every change between
+// constrained values requires circular-distance vertical moves and at least
+// one visit to that pair within its checkpoint interval. Relax the requirement
+// that a checkpoint must occur on a vertical move. Enumerate all allocations
+// of mandatory visits to stages; shortest horizontal travel on the seven-pair
+// cycle is an admissible bound. If no relaxed path is cheaper than the replayed
+// candidate, that candidate is optimal. An inconclusive proof is rejected.
+let studioTravelCache;
+function studioTravel(){
+  if(studioTravelCache)return studioTravelCache;
+  const table=new Uint8Array(128*7*7).fill(255);
+  for(let start=0;start<7;start++){
+    const d=new Int16Array(128*7).fill(-1),q=new Int16Array(128*7);
+    let head=0,tail=0,k=(1<<start)*7+start;d[k]=0;q[tail++]=k;
+    while(head<tail){const k=q[head++],m=Math.floor(k/7),p=k%7;
+      for(const n of [(p+6)%7,(p+1)%7]){const j=(m|1<<n)*7+n;if(d[j]<0){d[j]=d[k]+1;q[tail++]=j;}}
+    }
+    for(let m=0;m<128;m++)for(let end=0;end<7;end++)if(d[m*7+end]>=0)table[(m*7+start)*7+end]=d[m*7+end];
+  }
+  for(let b=0;b<7;b++)for(let m=0;m<128;m++)if(!(m&(1<<b)))for(let j=0;j<49;j++)
+    table[m*49+j]=Math.min(table[m*49+j],table[(m|1<<b)*49+j]);
+  return studioTravelCache=table;
+}
+function proveStudioOptimum(start,words,claimed){
+  if(typeof start!=='string'||!/^[A-Z]{14}$/.test(start)||!Array.isArray(words)||
+    words.length!==3||!words.every(w=>typeof w==='string'&&/^[A-Z]{5}$/.test(w))||
+    !Number.isInteger(claimed)||claimed<1||claimed>MAX_TRACE)return false;
+  const base=[...start].map(c=>c.charCodeAt(0)-65);
+  const req=words.map(w=>Array.from({length:14},(_,s)=>{
+    const r=new Int8Array(7).fill(-1);
+    for(let j=0;j<5;j++){const p=(s+j)%14;r[p%7]=(w.charCodeAt(j)-65-base[p]+26)%26;}
+    return r;
+  }));
+  const table=studioTravel(),allVisit=new Uint8Array(128).fill(255);
+  for(let m=0;m<128;m++)for(let e=0;e<7;e++)allVisit[m]=Math.min(allVisit[m],table[m*49+e]);
+  const costCache=new Map();
+  function hcost(a,b,c){
+    const key=a*16384+b*128+c,prev=costCache.get(key);if(prev!==undefined)return prev;
+    let best=255;
+    for(let i=0;i<7;i++)for(let j=0;j<7;j++){
+      const prefix=table[a*49+i]+table[b*49+i*7+j];if(prefix>=best)continue;
+      for(let k=0;k<7;k++)best=Math.min(best,prefix+table[c*49+j*7+k]);
+    }
+    costCache.set(key,best);return best;
+  }
+  for(const a of req[0])for(const b of req[1])for(const c of req[2]){
+    const stages=[a,b,c],tasks=[],fixed=[0,0,0];let v=0,mask=0;
+    for(let k=0;k<7;k++){
+      let prev=0,first=0;
+      for(let s=0;s<3;s++)if(stages[s][k]>=0){
+        const x=stages[s][k],diff=Math.abs(x-prev),d=Math.min(diff,26-diff);
+        if(d){v+=d;const bit=1<<k;mask|=bit;if(first===s)fixed[s]|=bit;else tasks.push([first,s,bit]);}
+        prev=x;first=s+1;
+      }
+    }
+    if(v+allVisit[mask]>=claimed)continue;
+    function possible(i,x,y,z){
+      if(i===tasks.length)return v+hcost(x,y,z)<claimed;
+      const [f,l,bit]=tasks[i];
+      for(let s=f;s<=l;s++)if(possible(i+1,x|(s===0?bit:0),y|(s===1?bit:0),z|(s===2?bit:0)))return true;
+      return false;
+    }
+    if(possible(0,...fixed))return false;
+  }
+  return true;
+}
+
+// Studio publishing: fixed hosts, production mutations disabled unless explicitly enabled.
 async function studioAPI(request,env,action){
   if(request.method!==(action==='schedule'?'GET':'POST'))return json({error:'Method not allowed'},405);
-  const preview=new URL(request.url).hostname==='studio-publishing-readonly-test-wirlox.af01624.workers.dev';
-  // Authenticate directly against a secret configured on this preview Worker.
-  // Never forward credentials to another Worker; never enable this route on production.
-  if(!preview)return json({error:'Production Studio access is disabled'},403);
+  const host=new URL(request.url).hostname;
+  const preview=host==='studio-publishing-readonly-test-wirlox.af01624.workers.dev';
+  const production=host==='wirlox.com';
+  if(!preview&&!production)return json({error:'Studio access is disabled on this host'},403);
+  const studioEnvironment=preview?'preview':'production';
+  const writesEnabled=preview||(production&&env.STUDIO_PRODUCTION_ENABLED==='1');
+  // Authenticate only against the secret configured on the current Worker.
+  // Production mutations remain fail-closed unless the owner explicitly enables them.
   const auth=request.headers.get('Authorization')||'';
   if(!auth.startsWith('Factory ')||auth.length>1400)return json({error:'Enter your existing Factory password'},401);
   let password;
   try{password=new TextDecoder('utf-8',{fatal:true}).decode(Uint8Array.from(atob(auth.slice(8)),c=>c.charCodeAt(0)));}catch{return json({error:'Invalid Factory password'},401);}
   if(password.length<1||password.length>256)return json({error:'Invalid Factory password'},401);
-  if(!strongFactoryKey(env))return json({error:'Preview Factory password is not configured'},503);
+  if(!strongFactoryKey(env))return json({error:'Factory password is not configured for this environment'},503);
   const [candidate,expected]=await Promise.all([digest(password),digest(env.FACTORY_ACCESS_KEY)]);
   if(!equalHex(candidate,expected))return json({error:'Factory password not recognised'},401);
   if(!env.DB)return json({error:'D1 binding not configured'},503);
@@ -510,9 +583,9 @@ async function studioAPI(request,env,action){
       if(date)date.setUTCDate(date.getUTCDate()+s.slot-FIRST_DAILY);
       return {...s,releaseDate:date?date.toISOString().slice(0,10):null};
     });
-    return json({...data,slots,revision:await digest(JSON.stringify({dailyStart:data.dailyStart,slots:data.slots})),writesEnabled:preview});
+    return json({...data,slots,revision:await digest(JSON.stringify({dailyStart:data.dailyStart,slots:data.slots})),writesEnabled,studioEnvironment});
   }
-  if(!preview)return json({error:'Production publishing is disabled'},403);
+  if(!writesEnabled)return json({error:'Production publishing is disabled'},403);
   if(request.headers.get('content-type')?.split(';')[0].trim()!=='application/json')return json({error:'JSON required'},415);
   let p;try{const raw=await request.text();if(raw.length>8192)return json({error:'Too large'},413);p=JSON.parse(raw);}catch{return json({error:'Invalid JSON'},400);}
   if(action==='upload'){
@@ -525,6 +598,7 @@ async function studioAPI(request,env,action){
       return json({error:'Approved puzzle with a proven optimum route required'},422);
     const row={starting_wheel:p.start,word1:p.words[0],word2:p.words[1],word3:p.words[2],optimum:p.optimum};
     if(!validateTrace(row,p.optimalRoute))return json({error:'Optimal route failed server replay'},422);
+    if(!proveStudioOptimum(p.start,p.words,p.optimum))return json({error:'Server could not independently prove this optimum. Nothing uploaded.'},422);
     const match=await db.prepare('SELECT number FROM puzzles WHERE starting_wheel=? AND word1=? AND word2=? AND word3=?').bind(p.start,...p.words).first();
     if(match)return json({error:'Puzzle already exists as source #'+match.number},409);
     const last=await db.prepare('SELECT MAX(number) AS n FROM puzzles').first();
@@ -533,14 +607,16 @@ async function studioAPI(request,env,action){
     const key='B'+String(Math.ceil(n/7)).padStart(2,'0')+'-'+n;
     try{
       const result=await db.batch([
-        db.prepare("INSERT INTO puzzles (number,puzzle_key,mood,starting_wheel,word1,word2,word3,optimum,excellent,good,average,publication) SELECT ?,?,?,?,?,?,?,?,?,?,?,'daily' WHERE NOT EXISTS (SELECT 1 FROM puzzles WHERE starting_wheel=? AND word1=? AND word2=? AND word3=?)")
-          .bind(n,key,p.mood||'Unrated',p.start,...p.words,p.optimum,p.optimum+3,p.optimum+8,p.optimum+16,p.start,...p.words),
-        db.prepare("INSERT INTO solution_routes(puzzle_number,route) SELECT number,? FROM puzzles WHERE number=? AND puzzle_key=? AND starting_wheel=? AND word1=? AND word2=? AND word3=?")
-          .bind(p.optimalRoute,n,key,p.start,...p.words)
+        // A concurrent duplicate fails the existing NOT NULL puzzle_key constraint.
+        // A conflicting source number fails the primary key. Either error aborts the
+        // entire D1 batch, including the route insert; never touch an existing route.
+        db.prepare("INSERT INTO puzzles (number,puzzle_key,mood,starting_wheel,word1,word2,word3,optimum,excellent,good,average,publication) VALUES (?,CASE WHEN EXISTS(SELECT 1 FROM puzzles WHERE starting_wheel=? AND word1=? AND word2=? AND word3=?) THEN NULL ELSE ? END,?,?,?,?,?,?,?,?,?,'daily')")
+          .bind(n,p.start,...p.words,key,p.mood||'Unrated',p.start,...p.words,p.optimum,p.optimum+3,p.optimum+8,p.optimum+16),
+        db.prepare("INSERT INTO solution_routes(puzzle_number,route) VALUES (?,?)").bind(n,p.optimalRoute)
       ]);
       if(result.some(r=>r.meta?.changes!==1))return json({error:'Duplicate or concurrent upload; refresh before retrying'},409);
     }catch{return json({error:'Upload rejected; refresh before retrying'},409);}
-    return json({ok:true,number:n,puzzleKey:key,scheduled:false});
+    return json({ok:true,number:n,puzzleKey:key,scheduled:false,studioEnvironment});
   }
   if(action==='append'){
     const n=p?.number;
@@ -552,14 +628,17 @@ async function studioAPI(request,env,action){
     if(date)date.setUTCDate(date.getUTCDate()+slot-FIRST_DAILY);
     const releaseDate=date?date.toISOString().slice(0,10):null;
     if(!releaseDate)return json({error:'Daily launch date is not set'},409);
-    // Preview dates may already be in the past. Production remains disabled.
+    // Historical fixtures remain usable in preview, never in production.
+    if(production&&releaseDate<=todayInMadrid())return json({error:'Cannot schedule a past or current Daily date'},409);
     const route=await db.prepare('SELECT p.*,r.route FROM puzzles p JOIN solution_routes r ON r.puzzle_number=p.number WHERE p.number=? AND p.publication=?').bind(n,'daily').first();
     if(!route||typeof route.route!=='string'||route.route.length!==route.optimum||!validateTrace(route,route.route))return json({error:'Reserve has no valid route'},422);
+    if(!proveStudioOptimum(route.starting_wheel,[route.word1,route.word2,route.word3],route.optimum))return json({error:'Server could not independently prove reserve optimum. Nothing scheduled.'},422);
+    if(production&&releaseDate<=todayInMadrid())return json({error:'Cannot schedule a past or current Daily date'},409);
     try{
-      const result=await db.prepare("INSERT INTO daily_schedule(slot_number,puzzle_number) SELECT ?,? WHERE (SELECT COALESCE(MAX(slot_number),28) FROM daily_schedule)=? AND NOT EXISTS(SELECT 1 FROM daily_schedule WHERE puzzle_number=?)").bind(slot,n,slot-1,n).run();
+      const result=await db.prepare("INSERT INTO daily_schedule(slot_number,puzzle_number) SELECT ?,? WHERE (SELECT COALESCE(MAX(slot_number),28) FROM daily_schedule)=? AND (SELECT COUNT(*) FROM daily_schedule WHERE slot_number>=29)=? AND NOT EXISTS(SELECT 1 FROM daily_schedule WHERE puzzle_number=?) AND EXISTS(SELECT 1 FROM settings WHERE key='daily_start_date' AND value=?)").bind(slot,n,slot-1,slot-FIRST_DAILY,n,data.dailyStart).run();
       if(result.meta?.changes!==1)return json({error:'Schedule changed; refresh before retrying'},409);
     }catch{return json({error:'Schedule changed; refresh before retrying'},409);}
-    return json({ok:true,slot,puzzleNumber:n,releaseDate});
+    return json({ok:true,slot,puzzleNumber:n,releaseDate,studioEnvironment});
   }
   return json({error:'Not found'},404);
 }
